@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/date_formatter.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../shared/widgets/app_text_field.dart';
@@ -45,7 +47,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     _phoneController.text = patient.phone ?? '';
     _selectedSex = patient.sex;
     _selectedBirthDate = patient.birthDate;
-    _birthDateController.text = _formatDate(patient.birthDate);
+    _birthDateController.text = DateFormatter.toDisplay(patient.birthDate);
     _bmiController.text = patient.bmi.toStringAsFixed(1);
   }
 
@@ -75,15 +77,8 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
 
     setState(() {
       _selectedBirthDate = pickedDate;
-      _birthDateController.text = _formatDate(pickedDate);
+      _birthDateController.text = DateFormatter.toDisplay(pickedDate);
     });
-  }
-
-  String _formatDate(DateTime date) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    final year = date.year.toString();
-    return '$day/$month/$year';
   }
 
   double? _parseBmi() {
@@ -93,15 +88,12 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
 
   String? _validateName(String? value, String label) {
     final text = value?.trim() ?? '';
-
     if (text.isEmpty) {
       return 'Veuillez saisir $label.';
     }
-
     if (text.length < 2) {
       return '$label doit contenir au moins 2 caractères.';
     }
-
     return null;
   }
 
@@ -109,31 +101,25 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     if (_selectedBirthDate == null) {
       return 'Veuillez sélectionner une date de naissance.';
     }
-
     final now = DateTime.now();
     if (_selectedBirthDate!.isAfter(now)) {
       return 'La date de naissance doit être dans le passé.';
     }
-
     final age = now.difference(_selectedBirthDate!).inDays ~/ 365;
     if (age < 0 || age > 120) {
       return "L'âge doit être compris entre 0 et 120 ans.";
     }
-
     return null;
   }
 
   String? _validateBmi(String? value) {
     final bmi = _parseBmi();
-
     if (bmi == null) {
       return 'Veuillez saisir un BMI valide.';
     }
-
     if (bmi < 10 || bmi > 80) {
       return 'Le BMI doit être compris entre 10 et 80.';
     }
-
     return null;
   }
 
@@ -148,16 +134,16 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
 
     if (bmi < 18.5) {
       label = 'Insuffisance pondérale';
-      color = Colors.blue;
+      color = AppColors.info;
     } else if (bmi < 25) {
       label = 'Poids normal';
-      color = Colors.green;
+      color = AppColors.success;
     } else if (bmi < 30) {
       label = 'Surpoids';
-      color = Colors.amber;
+      color = AppColors.warning;
     } else {
       label = 'Obésité';
-      color = Colors.red;
+      color = AppColors.danger;
     }
 
     return Align(
@@ -205,16 +191,8 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     return BlocListener<PatientCubit, PatientState>(
       listener: (context, state) {
         if (state is PatientOperationSuccess) {
-          final messenger = ScaffoldMessenger.of(context);
+          showSuccessSnackBar(context, state.message);
           Navigator.of(context).pop();
-          messenger
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: const Color(0xFF1D9E75),
-              ),
-            );
         } else if (state is PatientError) {
           showErrorSnackBar(context, state.message);
         }
@@ -223,119 +201,151 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         appBar: AppBar(
           title: Text(_isEditMode ? 'Modifier patient' : 'Nouveau patient'),
         ),
-        body: BlocBuilder<PatientCubit, PatientState>(
-          builder: (context, state) {
-            final isLoading = state is PatientLoading;
+        body: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+              child: BlocBuilder<PatientCubit, PatientState>(
+                builder: (context, state) {
+                  final isLoading = state is PatientLoading;
 
-            return SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      AppTextField(
-                        controller: _lastNameController,
-                        label: 'Nom',
-                        validator: (value) => _validateName(value, 'le nom'),
-                      ),
-                      const SizedBox(height: 16),
-                      AppTextField(
-                        controller: _firstNameController,
-                        label: 'Prénom',
-                        validator: (value) => _validateName(value, 'le prénom'),
-                      ),
-                      const SizedBox(height: 16),
-                      AppTextField(
-                        controller: _phoneController,
-                        label: 'Téléphone',
-                        keyboardType: TextInputType.phone,
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedSex,
-                        decoration: const InputDecoration(
-                          labelText: 'Sexe',
+                  return Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppTextField(
+                          controller: _lastNameController,
+                          label: 'Nom',
+                          validator: (value) => _validateName(value, 'le nom'),
                         ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Masculin',
-                            child: Text('Masculin'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Féminin',
-                            child: Text('Féminin'),
-                          ),
-                        ],
-                        onChanged: isLoading
-                            ? null
-                            : (value) {
-                                setState(() {
-                                  _selectedSex = value;
-                                });
-                              },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez sélectionner le sexe.';
-                          }
-
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      AppTextField(
-                        controller: _birthDateController,
-                        label: 'Date de naissance',
-                        readOnly: true,
-                        onTap: _pickBirthDate,
-                        validator: _validateBirthDate,
-                        suffixIcon: IconButton(
-                          onPressed: isLoading ? null : _pickBirthDate,
-                          icon: const Icon(Icons.calendar_today_outlined),
+                        const SizedBox(height: 16),
+                        AppTextField(
+                          controller: _firstNameController,
+                          label: 'Prénom',
+                          validator: (value) =>
+                              _validateName(value, 'le prénom'),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      AppTextField(
-                        controller: _bmiController,
-                        label: 'BMI (kg/m²)',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                        const SizedBox(height: 16),
+                        AppTextField(
+                          controller: _phoneController,
+                          label: 'Téléphone',
+                          keyboardType: TextInputType.phone,
                         ),
-                        validator: _validateBmi,
-                        helperText: 'Indice de masse corporelle',
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: 8),
-                      if (_buildBmiCategoryChip() != null)
-                        _buildBmiCategoryChip()!,
-                      const SizedBox(height: 28),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: isLoading
-                                  ? null
-                                  : () => Navigator.of(context).pop(),
-                              child: const Text('Annuler'),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedSex,
+                          decoration: InputDecoration(
+                            labelText: 'Sexe',
+                            filled: true,
+                            fillColor: AppColors.surfaceVariant,
+                            labelStyle: const TextStyle(color: AppColors.muted),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppColors.surfaceVariant,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppColors.surfaceVariant,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppColors.danger,
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppColors.danger,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: AppButton(
-                              label: 'Enregistrer',
-                              isLoading: isLoading,
-                              onPressed: isLoading ? null : _submit,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'Masculin',
+                              child: Text('Masculin'),
                             ),
+                            DropdownMenuItem(
+                              value: 'Féminin',
+                              child: Text('Féminin'),
+                            ),
+                          ],
+                          onChanged: isLoading
+                              ? null
+                              : (value) => setState(() => _selectedSex = value),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Veuillez sélectionner le sexe.';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        AppTextField(
+                          controller: _birthDateController,
+                          label: 'Date de naissance',
+                          readOnly: true,
+                          onTap: _pickBirthDate,
+                          validator: _validateBirthDate,
+                          suffixIcon: IconButton(
+                            onPressed: isLoading ? null : _pickBirthDate,
+                            icon: const Icon(Icons.calendar_today_outlined),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                        ),
+                        const SizedBox(height: 16),
+                        AppTextField(
+                          controller: _bmiController,
+                          label: 'BMI (kg/m²)',
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          validator: _validateBmi,
+                          helperText: 'Indice de masse corporelle',
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 8),
+                        if (_buildBmiCategoryChip() != null)
+                          _buildBmiCategoryChip()!,
+                        const SizedBox(height: 28),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: isLoading
+                                    ? null
+                                    : () => Navigator.of(context).pop(),
+                                child: const Text('Annuler'),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: AppButton(
+                                label: 'Enregistrer',
+                                onPressed: isLoading ? null : _submit,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );

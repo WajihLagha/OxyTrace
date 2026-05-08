@@ -1,4 +1,4 @@
-import '../../../auth/data/datasources/auth_local_datasource.dart';
+import '../../../../shared/network/local/database_helper.dart';
 import '../models/patient_model.dart';
 
 class PatientLocalDatasource {
@@ -72,6 +72,13 @@ class PatientLocalDatasource {
   Future<int> getPatientsCount() async {
     final db = await databaseHelper.database;
     final result = await db.rawQuery('SELECT COUNT(*) AS count FROM patients');
+    return (result.first['count'] as int?) ?? 0;
+  }
+
+  Future<int> getIntubationsCount() async {
+    final db = await databaseHelper.database;
+    final result =
+        await db.rawQuery('SELECT COUNT(*) AS count FROM intubations');
     return (result.first['count'] as int?) ?? 0;
   }
 }

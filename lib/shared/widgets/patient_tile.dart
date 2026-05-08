@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_colors.dart';
 import '../../features/patient/domain/entities/patient_entity.dart';
 
 class PatientTile extends StatelessWidget {
@@ -29,7 +30,7 @@ class PatientTile extends StatelessWidget {
           onTap: onTap,
           onLongPress: onLongPress,
           leading: CircleAvatar(
-            backgroundColor: const Color(0xFF1D9E75),
+            backgroundColor: AppColors.primary,
             child: Text(
               _initials,
               style: const TextStyle(
@@ -44,11 +45,11 @@ class PatientTile extends StatelessWidget {
           ),
           subtitle: Text(
             '${patient.age} ans • ${patient.sex}',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
+            style: const TextStyle(color: AppColors.muted),
           ),
-          trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+          trailing: const Icon(Icons.chevron_right, color: AppColors.muted),
         ),
-        Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
+        const Divider(height: 1, color: AppColors.surfaceVariant),
       ],
     );
   }

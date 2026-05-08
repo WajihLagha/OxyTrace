@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/app_assets.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../injection_container.dart';
 import '../../../../shared/widgets/app_button.dart';
@@ -53,88 +56,98 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const tealColor = Color(0xFF1D9E75);
-
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: BlocConsumer<AuthCubit, AuthState>(
-                listener: (context, state) {
-                  if (state is AuthSuccess) {
-                    Navigator.of(context).pushReplacementNamed('/dashboard');
-                  } else if (state is AuthFailure) {
-                    showErrorSnackBar(context, state.message);
-                  }
-                },
-                builder: (context, state) {
-                  final isLoading = state is AuthLoading;
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: BlocConsumer<AuthCubit, AuthState>(
+            listener: (context, state) {
+              if (state is AuthSuccess) {
+                Navigator.of(context).pushReplacementNamed('/dashboard');
+              } else if (state is AuthFailure) {
+                showErrorSnackBar(context, state.message);
+              }
+            },
+            builder: (context, state) {
+              final isLoading = state is AuthLoading;
 
-                  return Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Icon(
-                          Icons.medical_services,
-                          size: 72,
-                          color: tealColor,
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Connexion',
-                          style: Theme.of(context).textTheme.headlineMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "Application médicale d'intubation",
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 32),
-                        AppTextField(
-                          controller: _emailController,
-                          label: 'Adresse e-mail',
-                          keyboardType: TextInputType.emailAddress,
-                          validator: Validators.validateEmail,
-                        ),
-                        const SizedBox(height: 16),
-                        AppTextField(
-                          controller: _passwordController,
-                          label: 'Mot de passe',
-                          obscureText: true,
-                          validator: Validators.validatePassword,
-                        ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () {},
-                            child: const Text('Mot de passe oublié ?'),
+              return SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 24),
+                          Image.asset(
+                            AppAssets.logo,
+                            width: 90,
+                            height: 90,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                              Icons.medical_services,
+                              size: 80,
+                              color: AppColors.primary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        AppButton(
-                          label: 'Se connecter',
-                          isLoading: isLoading,
-                          onPressed: isLoading ? null : _submitLogin,
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: isLoading ? null : _openRegisterScreen,
-                          child: const Text("Pas de compte ? S'inscrire"),
-                        ),
-                      ],
+                          const SizedBox(height: 24),
+                          Text(
+                            'Connexion',
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            AppStrings.appSubtitle,
+                            style: const TextStyle(color: AppColors.muted),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 32),
+                          AppTextField(
+                            controller: _emailController,
+                            label: 'Adresse e-mail',
+                            keyboardType: TextInputType.emailAddress,
+                            validator: Validators.validateEmail,
+                          ),
+                          const SizedBox(height: 16),
+                          AppTextField(
+                            controller: _passwordController,
+                            label: 'Mot de passe',
+                            obscureText: true,
+                            validator: Validators.validatePassword,
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {},
+                              child: const Text('Mot de passe oublié ?'),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          AppButton(
+                            label: 'Se connecter',
+                            onPressed: isLoading ? null : _submitLogin,
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton(
+                            onPressed: isLoading ? null : _openRegisterScreen,
+                            child: const Text("Pas de compte ? S'inscrire"),
+                          ),
+                        ],
+                      ),
                     ),
-                  );
-                },
-              ),
-            ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),

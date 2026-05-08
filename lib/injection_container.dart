@@ -1,11 +1,20 @@
 import 'package:get_it/get_it.dart';
 
+import 'shared/network/local/database_helper.dart';
 import 'features/auth/data/datasources/auth_local_datasource.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/domain/usecases/login_usecase.dart';
 import 'features/auth/domain/usecases/register_usecase.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
+import 'features/intubation/data/datasources/intubation_local_datasource.dart';
+import 'features/intubation/data/repositories/intubation_repository_impl.dart';
+import 'features/intubation/domain/repositories/intubation_repository.dart';
+import 'features/intubation/domain/usecases/create_intubation_usecase.dart';
+import 'features/intubation/domain/usecases/delete_intubation_usecase.dart';
+import 'features/intubation/domain/usecases/get_intubations_by_patient_usecase.dart';
+import 'features/intubation/domain/usecases/update_intubation_usecase.dart';
+import 'features/intubation/presentation/cubit/intubation_cubit.dart';
 import 'features/patient/data/datasources/patient_local_datasource.dart';
 import 'features/patient/data/repositories/patient_repository_impl.dart';
 import 'features/patient/domain/repositories/patient_repository.dart';
@@ -116,6 +125,59 @@ Future<void> initDependencies() async {
         deletePatient: sl<DeletePatientUseCase>(),
         getAllPatients: sl<GetAllPatientsUseCase>(),
         searchPatients: sl<SearchPatientsUseCase>(),
+      ),
+    );
+  }
+
+  if (!sl.isRegistered<IntubationLocalDatasource>()) {
+    sl.registerLazySingleton<IntubationLocalDatasource>(
+      () => IntubationLocalDatasource(sl<DatabaseHelper>()),
+    );
+  }
+
+  if (!sl.isRegistered<IntubationRepositoryImpl>()) {
+    sl.registerLazySingleton<IntubationRepositoryImpl>(
+      () => IntubationRepositoryImpl(sl<IntubationLocalDatasource>()),
+    );
+  }
+
+  if (!sl.isRegistered<IntubationRepository>()) {
+    sl.registerLazySingleton<IntubationRepository>(
+      () => sl<IntubationRepositoryImpl>(),
+    );
+  }
+
+  if (!sl.isRegistered<CreateIntubationUseCase>()) {
+    sl.registerLazySingleton<CreateIntubationUseCase>(
+      () => CreateIntubationUseCase(sl<IntubationRepository>()),
+    );
+  }
+
+  if (!sl.isRegistered<UpdateIntubationUseCase>()) {
+    sl.registerLazySingleton<UpdateIntubationUseCase>(
+      () => UpdateIntubationUseCase(sl<IntubationRepository>()),
+    );
+  }
+
+  if (!sl.isRegistered<DeleteIntubationUseCase>()) {
+    sl.registerLazySingleton<DeleteIntubationUseCase>(
+      () => DeleteIntubationUseCase(sl<IntubationRepository>()),
+    );
+  }
+
+  if (!sl.isRegistered<GetIntubationsByPatientUseCase>()) {
+    sl.registerLazySingleton<GetIntubationsByPatientUseCase>(
+      () => GetIntubationsByPatientUseCase(sl<IntubationRepository>()),
+    );
+  }
+
+  if (!sl.isRegistered<IntubationCubit>()) {
+    sl.registerFactory<IntubationCubit>(
+      () => IntubationCubit(
+        createIntubation: sl<CreateIntubationUseCase>(),
+        updateIntubation: sl<UpdateIntubationUseCase>(),
+        deleteIntubation: sl<DeleteIntubationUseCase>(),
+        getIntubationsByPatient: sl<GetIntubationsByPatientUseCase>(),
       ),
     );
   }

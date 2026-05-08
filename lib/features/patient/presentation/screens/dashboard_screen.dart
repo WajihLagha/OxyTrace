@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/app_assets.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_strings.dart';
 import '../../../../injection_container.dart';
+import '../../../../shared/widgets/app_snackbar.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/widgets/patient_tile.dart';
-import '../../../auth/presentation/cubit/auth_cubit.dart';
-import '../../../patient/data/datasources/patient_local_datasource.dart';
+import '../../../auth/presentation/screens/profile_screen.dart';
+import '../../data/datasources/patient_local_datasource.dart';
+import '../../domain/entities/patient_entity.dart';
 import '../cubit/patient_cubit.dart';
 import '../cubit/patient_state.dart';
 import 'patient_detail_screen.dart';
@@ -19,6 +26,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  int _currentIndex = 0;
   late Future<int> _totalPatientsFuture;
 
   @override
@@ -32,17 +40,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     context.read<PatientCubit>().loadPatients();
   }
 
+  int _recentCount(List<PatientEntity> patients) {
+    final threshold = DateTime.now().subtract(const Duration(days: 7));
+    return patients.where((patient) => patient.createdAt.isAfter(threshold)).length;
+  }
+
   Future<void> _openPatientForm() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => const PatientFormScreen(),
       ),
     );
-
     if (!mounted) {
       return;
     }
-
     setState(_refreshDashboard);
   }
 
@@ -52,224 +63,241 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (_) => PatientListScreen(openSearch: openSearch),
       ),
     );
-
     if (!mounted) {
       return;
     }
-
     setState(_refreshDashboard);
   }
 
-  Future<void> _openPatientDetail(PatientState state, int index) async {
-    if (state is! PatientListLoaded) {
-      return;
-    }
-
+  Future<void> _openPatientDetail(PatientEntity patient) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => PatientDetailScreen(patient: state.patients[index]),
+        builder: (_) => PatientDetailScreen(patient: patient),
       ),
     );
-
     if (!mounted) {
       return;
     }
-
     setState(_refreshDashboard);
   }
 
-  void _logout() {
-    context.read<AuthCubit>().reset();
-    context.read<PatientCubit>().reset();
-    Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
-  }
+  Widget _buildHomeTab() {
+    return BlocBuilder<PatientCubit, PatientState>(
+      builder: (context, state) {
+        final recentCount =
+            state is PatientListLoaded ? _recentCount(state.patients) : 0;
+        final latestPatients = state is PatientListLoaded
+            ? state.patients.take(5).toList()
+            : <PatientEntity>[];
 
-  int _recentCount(List patients) {
-    final threshold = DateTime.now().subtract(const Duration(days: 7));
-    return patients
-        .where((patient) => patient.createdAt.isAfter(threshold))
-        .length;
+        return RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () async {
+            setState(_refreshDashboard);
+            await _totalPatientsFuture;
+          },
+          child: ListView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: FutureBuilder<int>(
+                      future: _totalPatientsFuture,
+                      builder: (context, snapshot) {
+                        return _StatCard(
+                          label: 'Total patients',
+                          value: snapshot.data?.toString() ?? '--',
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _StatCard(
+                      label: 'Dossiers récents',
+                      value: recentCount.toString(),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 1.15,
+                children: [
+                  _ActionCard(
+                    icon: Icons.person_add_alt_1,
+                    label: 'Nouveau patient',
+                    onTap: _openPatientForm,
+                  ),
+                  _ActionCard(
+                    icon: Icons.folder_copy_outlined,
+                    label: 'Liste des patients',
+                    onTap: _openPatientList,
+                  ),
+                  _ActionCard(
+                    icon: Icons.search,
+                    label: 'Rechercher',
+                    onTap: () => _openPatientList(openSearch: true),
+                  ),
+                  _ActionCard(
+                    icon: Icons.sync,
+                    label: 'Synchronisation',
+                    onTap: () => showInfoSnackBar(
+                      context,
+                      'Fonctionnalité à venir',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              Row(
+                children: [
+                  Text(
+                    'Derniers dossiers',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _openPatientList,
+                    child: const Text('Voir tous'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (state is PatientLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 48),
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                )
+              else if (state is PatientError)
+                ErrorState(
+                  message: state.message,
+                  onRetry: () => setState(_refreshDashboard),
+                )
+              else if (latestPatients.isEmpty)
+                const EmptyState(
+                  icon: Icons.people_outline,
+                  title: 'Aucun patient enregistré',
+                  subtitle: 'Ajoutez un patient pour commencer.',
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    children: latestPatients
+                        .map(
+                          (patient) => PatientTile(
+                            patient: patient,
+                            onTap: () => _openPatientDetail(patient),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final tabs = [
+      _buildHomeTab(),
+      const PatientListScreen(showAppBar: false, showFab: false),
+      const ProfileScreen(embedded: true),
+    ];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('IntubApp'),
+        title: Row(
+          children: [
+            Image.asset(
+              AppAssets.logo,
+              width: 32,
+              height: 32,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.medical_services,
+                size: 28,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              AppStrings.appName,
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
-            onPressed: _logout,
-            icon: const CircleAvatar(
-              radius: 16,
-              backgroundColor: Color(0xFF1D9E75),
-              child: Icon(Icons.person, size: 18, color: Colors.white),
-            ),
+            onPressed: () {},
+            icon: const Icon(Icons.notifications_none),
           ),
-          const SizedBox(width: 8),
         ],
       ),
-      body: BlocBuilder<PatientCubit, PatientState>(
-        builder: (context, state) {
-          final recentCount = state is PatientListLoaded
-              ? _recentCount(state.patients)
-              : 0;
-          final latestPatients = state is PatientListLoaded
-              ? state.patients.take(5).toList()
-              : const [];
-
-          return RefreshIndicator(
-            color: const Color(0xFF1D9E75),
-            onRefresh: () async {
-              setState(_refreshDashboard);
-              await _totalPatientsFuture;
-            },
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: FutureBuilder<int>(
-                        future: _totalPatientsFuture,
-                        builder: (context, snapshot) {
-                          return _StatCard(
-                            label: 'Total patients',
-                            value: snapshot.data?.toString() ?? '--',
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _StatCard(
-                        label: 'Dossiers récents',
-                        value: recentCount.toString(),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 1.15,
-                  children: [
-                    _ActionCard(
-                      icon: Icons.person_add_alt_1,
-                      label: 'Nouveau patient',
-                      onTap: _openPatientForm,
-                    ),
-                    _ActionCard(
-                      icon: Icons.folder_copy_outlined,
-                      label: 'Liste des patients',
-                      onTap: _openPatientList,
-                    ),
-                    _ActionCard(
-                      icon: Icons.search,
-                      label: 'Rechercher',
-                      onTap: () => _openPatientList(openSearch: true),
-                    ),
-                    _ActionCard(
-                      icon: Icons.sync,
-                      label: 'Synchronisation',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Fonctionnalité à venir'),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
-                Row(
-                  children: [
-                    Text(
-                      'Derniers dossiers',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: _openPatientList,
-                      child: const Text('Voir tous'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (state is PatientLoading)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 40),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF1D9E75),
-                      ),
-                    ),
-                  )
-                else if (state is PatientError)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Column(
-                      children: [
-                        Text(state.message),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed: () => setState(_refreshDashboard),
-                          child: const Text('Réessayer'),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (latestPatients.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.04),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(
-                          Icons.people_outline,
-                          size: 48,
-                          color: Colors.white54,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Aucun patient enregistré pour le moment',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.72),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.04),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Column(
-                      children: List.generate(
-                        latestPatients.length,
-                        (index) => PatientTile(
-                          patient: latestPatients[index],
-                          onTap: () => _openPatientDetail(state, index),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: IndexedStack(
+          index: _currentIndex,
+          children: tabs,
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: const Border(
+            top: BorderSide(
+              color: AppColors.surfaceVariant,
+              width: 0.5,
             ),
-          );
-        },
+          ),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (value) => setState(() => _currentIndex = value),
+          backgroundColor: AppColors.surface,
+          selectedItemColor: AppColors.primary,
+          unselectedItemColor: AppColors.muted,
+          type: BottomNavigationBarType.fixed,
+          elevation: 0,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Accueil',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people_outline),
+              activeIcon: Icon(Icons.people),
+              label: 'Patients',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profil',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -289,10 +317,10 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
         border: const Border(
-          top: BorderSide(color: Color(0xFF1D9E75), width: 3),
+          top: BorderSide(color: AppColors.primary, width: 3),
         ),
       ),
       child: Column(
@@ -301,14 +329,14 @@ class _StatCard extends StatelessWidget {
           Text(
             value,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: const Color(0xFF1D9E75),
+                  color: AppColors.primary,
                   fontWeight: FontWeight.bold,
                 ),
           ),
           const SizedBox(height: 8),
           Text(
             label,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
+            style: const TextStyle(color: AppColors.muted),
           ),
         ],
       ),
@@ -330,7 +358,7 @@ class _ActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.04),
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -340,7 +368,7 @@ class _ActionCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: const Color(0xFF1D9E75), size: 32),
+              Icon(icon, color: AppColors.primary, size: 32),
               const SizedBox(height: 12),
               Text(
                 label,

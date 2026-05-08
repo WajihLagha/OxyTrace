@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Cette application utilise l'appareil photo pour documenter les dossiers d'intubation.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Cette application accède à votre photothèque pour joindre des photos cliniques.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

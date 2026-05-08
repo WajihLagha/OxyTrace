@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_colors.dart';
+
 class AppButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -20,17 +22,20 @@ class AppButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
+          backgroundColor:
+              onPressed == null ? AppColors.muted : AppColors.primary,
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: isLoading
             ? const SizedBox(
-                width: 22,
-                height: 22,
+                width: 20,
+                height: 20,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2.4,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  color: Colors.white,
+                  strokeWidth: 2,
                 ),
               )
             : Text(label),
