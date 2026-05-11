@@ -9,6 +9,7 @@ import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/widgets/patient_tile.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/presentation/screens/profile_screen.dart';
 import '../../data/datasources/patient_local_datasource.dart';
 import '../../domain/entities/patient_entity.dart';
@@ -79,6 +80,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
     setState(_refreshDashboard);
+  }
+
+  Future<void> _logout() async {
+    await context.read<AuthCubit>().logout();
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 
   Widget _buildHomeTab() {
@@ -235,7 +244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               AppAssets.logo,
               width: 32,
               height: 32,
-              errorBuilder: (_, __, ___) => const Icon(
+              errorBuilder: (context, error, stackTrace) => const Icon(
                 Icons.medical_services,
                 size: 28,
                 color: AppColors.primary,
@@ -249,6 +258,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout),
+            tooltip: 'Se deconnecter',
+          ),
           IconButton(
             onPressed: () {},
             icon: const Icon(Icons.notifications_none),

@@ -22,13 +22,13 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _bootstrap() async {
     await Future<void>.delayed(const Duration(seconds: 2));
     final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt('logged_in_user_id');
+    final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
 
     if (!mounted) {
       return;
     }
 
-    if (userId != null) {
+    if (isLoggedIn) {
       Navigator.pushReplacementNamed(context, '/dashboard');
       return;
     }

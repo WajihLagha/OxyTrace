@@ -38,6 +38,7 @@ class IntubationEntity extends Equatable {
   final bool intubationDifficileReelle;
   final String? complications;
   final List<String> photoPaths;
+  final String? audioPath;
 
   const IntubationEntity({
     this.id,
@@ -77,6 +78,7 @@ class IntubationEntity extends Equatable {
     this.intubationDifficileReelle = false,
     this.complications,
     this.photoPaths = const [],
+    this.audioPath,
   });
 
   IntubationEntity copyWith({
@@ -92,14 +94,18 @@ class IntubationEntity extends Equatable {
     bool? traumatismeCervical,
     bool? brulureCervicoFaciale,
     String? brulureLocalisation,
+    bool clearBrulureLocalisation = false,
     bool? dysmorphieCranioFaciale,
     String? dysmorphieLocalisation,
+    bool clearDysmorphieLocalisation = false,
     bool? tumeurCervicofaciale,
     String? tumeurLocalisation,
+    bool clearTumeurLocalisation = false,
     bool? ronflement,
     bool? dysphonie,
     bool? dysphagie,
     String? acteOperatoire,
+    bool clearActeOperatoire = false,
     int? scoreStopbang,
     bool clearScoreStopbang = false,
     String? mallampati,
@@ -117,7 +123,10 @@ class IntubationEntity extends Equatable {
     String? scoreCormack,
     bool? intubationDifficileReelle,
     String? complications,
+    bool clearComplications = false,
     List<String>? photoPaths,
+    String? audioPath,
+    bool clearAudioPath = false,
   }) {
     return IntubationEntity(
       id: id ?? this.id,
@@ -134,19 +143,24 @@ class IntubationEntity extends Equatable {
       traumatismeCervical: traumatismeCervical ?? this.traumatismeCervical,
       brulureCervicoFaciale:
           brulureCervicoFaciale ?? this.brulureCervicoFaciale,
-      brulureLocalisation:
-          brulureLocalisation ?? this.brulureLocalisation,
+      brulureLocalisation: clearBrulureLocalisation
+          ? null
+          : brulureLocalisation ?? this.brulureLocalisation,
       dysmorphieCranioFaciale:
           dysmorphieCranioFaciale ?? this.dysmorphieCranioFaciale,
-      dysmorphieLocalisation:
-          dysmorphieLocalisation ?? this.dysmorphieLocalisation,
+      dysmorphieLocalisation: clearDysmorphieLocalisation
+          ? null
+          : dysmorphieLocalisation ?? this.dysmorphieLocalisation,
       tumeurCervicofaciale:
           tumeurCervicofaciale ?? this.tumeurCervicofaciale,
-      tumeurLocalisation: tumeurLocalisation ?? this.tumeurLocalisation,
+      tumeurLocalisation: clearTumeurLocalisation
+          ? null
+          : tumeurLocalisation ?? this.tumeurLocalisation,
       ronflement: ronflement ?? this.ronflement,
       dysphonie: dysphonie ?? this.dysphonie,
       dysphagie: dysphagie ?? this.dysphagie,
-      acteOperatoire: acteOperatoire ?? this.acteOperatoire,
+      acteOperatoire:
+          clearActeOperatoire ? null : acteOperatoire ?? this.acteOperatoire,
       scoreStopbang:
           clearScoreStopbang ? null : scoreStopbang ?? this.scoreStopbang,
       mallampati: mallampati ?? this.mallampati,
@@ -164,8 +178,10 @@ class IntubationEntity extends Equatable {
       scoreCormack: scoreCormack ?? this.scoreCormack,
       intubationDifficileReelle:
           intubationDifficileReelle ?? this.intubationDifficileReelle,
-      complications: complications ?? this.complications,
+      complications:
+          clearComplications ? null : complications ?? this.complications,
       photoPaths: photoPaths ?? this.photoPaths,
+      audioPath: clearAudioPath ? null : audioPath ?? this.audioPath,
     );
   }
 
@@ -208,5 +224,6 @@ class IntubationEntity extends Equatable {
         intubationDifficileReelle,
         complications,
         photoPaths,
+        audioPath,
       ];
 }

@@ -17,9 +17,9 @@ class PdfService {
     'Vue de face',
     'Vue de profil',
     'Bouche ouverte',
-    'DD profil neutre',
-    'DD profil en extension',
-    'Autre',
+    'LIP test face',
+    'DD vue profil neutre',
+    'DD vue profil en extension',
   ];
 
   static Future<void> generateAndShare(
@@ -68,7 +68,7 @@ class PdfService {
             pw.Text('Date : ${DateFormatter.toDisplay(intubation.createdAt)}'),
             pw.SizedBox(height: 18),
             pw.Text(
-              'Informations Patient',
+              'Informations patient',
               style: pw.TextStyle(
                 fontSize: 16,
                 fontWeight: pw.FontWeight.bold,
@@ -206,6 +206,10 @@ class PdfService {
                   ? intubation.complications!
                   : 'RAS',
             ),
+            if (intubation.audioPath?.isNotEmpty == true) ...[
+              pw.SizedBox(height: 8),
+              pw.Text('Enregistrement audio disponible'),
+            ],
           ];
         },
       ),

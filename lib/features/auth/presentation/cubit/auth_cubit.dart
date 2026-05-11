@@ -7,6 +7,11 @@ import '../../domain/usecases/register_usecase.dart';
 import 'auth_state.dart';
 
 class AuthCubit extends Cubit<AuthState> {
+  static const String isLoggedInKey = 'is_logged_in';
+  static const String loggedInUserIdKey = 'logged_in_user_id';
+  static const String loggedInUserEmailKey = 'logged_in_user_email';
+  static const String loggedInUserNameKey = 'logged_in_user_name';
+
   final LoginUseCase loginUseCase;
   final RegisterUseCase registerUseCase;
 
@@ -27,9 +32,10 @@ class AuthCubit extends Cubit<AuthState> {
         (failure) async => emit(AuthFailure(failure.message)),
         (user) async {
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('logged_in_user_id', user.id!);
-          await prefs.setString('logged_in_user_email', user.email);
-          await prefs.setString('logged_in_user_name', user.fullName);
+          await prefs.setBool(isLoggedInKey, true);
+          await prefs.setInt(loggedInUserIdKey, user.id!);
+          await prefs.setString(loggedInUserEmailKey, user.email);
+          await prefs.setString(loggedInUserNameKey, user.fullName);
           emit(AuthSuccess(user));
         },
       );
@@ -73,17 +79,18 @@ class AuthCubit extends Cubit<AuthState> {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('logged_in_user_id');
-    await prefs.remove('logged_in_user_email');
-    await prefs.remove('logged_in_user_name');
+    await prefs.setBool(isLoggedInKey, false);
+    await prefs.remove(loggedInUserIdKey);
+    await prefs.remove(loggedInUserEmailKey);
+    await prefs.remove(loggedInUserNameKey);
     emit(const AuthInitial());
   }
 
   Future<UserEntity?> getCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();
-    final id = prefs.getInt('logged_in_user_id');
-    final email = prefs.getString('logged_in_user_email') ?? '';
-    final name = prefs.getString('logged_in_user_name') ?? '';
+    final id = prefs.getInt(loggedInUserIdKey);
+    final email = prefs.getString(loggedInUserEmailKey) ?? '';
+    final name = prefs.getString(loggedInUserNameKey) ?? '';
 
     if (id == null) {
       return null;

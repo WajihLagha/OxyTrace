@@ -1,10 +1,15 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
 
+import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../shared/widgets/app_text_field.dart';
@@ -31,25 +36,30 @@ class IntubationFormScreen extends StatefulWidget {
 
 class _IntubationFormScreenState extends State<IntubationFormScreen> {
   static const List<String> _stepTitles = [
-    'Antecedents medicaux',
-    'Evaluation clinique',
-    'Evaluation du risque',
-    "Donnees per-intubation",
-    'Difficultes et complications',
-    'Donnees complementaires',
+    'Antécédents médicaux',
+    'Évaluation clinique',
+    'Évaluation du risque',
+    'Données per-intubation',
+    'Difficultés et complications',
+    'Données complémentaires',
   ];
 
   static const List<String> _photoLabels = [
     'Vue de face',
     'Vue de profil',
     'Bouche ouverte',
-    'DD profil neutre',
-    'DD profil en extension',
-    'Autre',
+    'LIP test face',
+    'DD vue profil neutre',
+    'DD vue profil en extension',
   ];
+
+  static const List<String> _phonemes = ['أ', 'خ', 'ه', 'ح', 'غ', 'ع'];
 
   final PageController _pageController = PageController();
   final ImagePicker _imagePicker = ImagePicker();
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  final AudioPlayer _player = AudioPlayer();
+
   final TextEditingController _brulureController = TextEditingController();
   final TextEditingController _dysmorphieController = TextEditingController();
   final TextEditingController _tumeurController = TextEditingController();
@@ -57,11 +67,18 @@ class _IntubationFormScreenState extends State<IntubationFormScreen> {
   final TextEditingController _complicationsController =
       TextEditingController();
 
+  Timer? _phonemeTimer;
+  Timer? _recordingTimeoutTimer;
+
   late IntubationEntity _draft;
   int _currentStep = 0;
+  int? _activePhonemeIndex;
   bool _showStep2Errors = false;
   bool _showStep3Errors = false;
   bool _showStep4Errors = false;
+  bool _isRecording = false;
+  bool _hasRecording = false;
+  String? _localAudioPath;
 
   bool get _isEditMode => widget.intubation != null;
 
@@ -74,16 +91,22 @@ class _IntubationFormScreenState extends State<IntubationFormScreen> {
     _tumeurController.text = _draft.tumeurLocalisation ?? '';
     _acteController.text = _draft.acteOperatoire ?? '';
     _complicationsController.text = _draft.complications ?? '';
+    _localAudioPath = _draft.audioPath;
+    _hasRecording = _localAudioPath?.isNotEmpty == true;
   }
 
   @override
   void dispose() {
+    _phonemeTimer?.cancel();
+    _recordingTimeoutTimer?.cancel();
     _pageController.dispose();
     _brulureController.dispose();
     _dysmorphieController.dispose();
     _tumeurController.dispose();
     _acteController.dispose();
     _complicationsController.dispose();
+    _audioRecorder.dispose();
+    _player.dispose();
     super.dispose();
   }
 
@@ -133,6 +156,7 @@ class _IntubationFormScreenState extends State<IntubationFormScreen> {
     if (_currentStep == 0) {
       return;
     }
+
     await _goToStep(_currentStep - 1);
   }
 
@@ -188,17 +212,17 @@ class _IntubationFormScreenState extends State<IntubationFormScreen> {
         _draft.ouvertureBuccale == null ||
         _draft.tourDeCou == null ||
         _draft.mobiliteCervicale == null) {
-      missing.add('Evaluation clinique');
+      missing.add('Évaluation clinique');
     }
 
     if (_draft.intubationPrevue == null) {
-      missing.add('Evaluation du risque');
+      missing.add('Évaluation du risque');
     }
 
     if (_draft.typeIntubation == null ||
         _draft.scoreCormack == null ||
         (_draft.nombreTentatives ?? 0) < 1) {
-      missing.add("Donnees per-intubation");
+      missing.add('Données per-intubation');
     }
 
     return missing;
@@ -215,12 +239,17 @@ class _IntubationFormScreenState extends State<IntubationFormScreen> {
     if (missingSections.isNotEmpty) {
       showErrorSnackBar(
         context,
-        'Sections incompletes: ${missingSections.join(', ')}.',
+        'Sections incomplètes : ${missingSections.join(', ')}.',
       );
       return;
     }
 
-    final payload = _draft.copyWith(updatedAt: DateTime.now());
+    final payload = _draft.copyWith(
+      updatedAt: DateTime.now(),
+      audioPath: _localAudioPath,
+      clearAudioPath: _localAudioPath == null || _localAudioPath!.isEmpty,
+    );
+
     if (_isEditMode) {
       await context.read<IntubationCubit>().updateIntubation(payload);
       return;
@@ -232,8 +261,8 @@ class _IntubationFormScreenState extends State<IntubationFormScreen> {
   Future<void> _pickImage(int index) async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: const Color(0xFF18232C),
-      builder: (context) {
+      backgroundColor: AppColors.surface,
+      builder: (bottomSheetContext) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -241,12 +270,16 @@ class _IntubationFormScreenState extends State<IntubationFormScreen> {
               ListTile(
                 leading: const Icon(Icons.photo_camera_outlined),
                 title: const Text('Prendre une photo'),
-                onTap: () => Navigator.of(context).pop(ImageSource.camera),
+                onTap: () => Navigator.of(bottomSheetContext).pop(
+                  ImageSource.camera,
+                ),
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
                 title: const Text('Choisir depuis la galerie'),
-                onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+                onTap: () => Navigator.of(bottomSheetContext).pop(
+                  ImageSource.gallery,
+                ),
               ),
             ],
           ),
@@ -330,28 +363,202 @@ class _IntubationFormScreenState extends State<IntubationFormScreen> {
     });
   }
 
+  Future<void> _startRecording() async {
+    if (_isRecording) {
+      return;
+    }
+
+    final permissionStatus = await Permission.microphone.request();
+    if (!permissionStatus.isGranted) {
+      if (!mounted) {
+        return;
+      }
+      showErrorSnackBar(
+        context,
+        'Veuillez autoriser le microphone pour enregistrer.',
+      );
+      return;
+    }
+
+    final hasPermission = await _audioRecorder.hasPermission();
+    if (!hasPermission) {
+      if (!mounted) {
+        return;
+      }
+      showErrorSnackBar(
+        context,
+        "Le microphone n'est pas disponible pour le moment.",
+      );
+      return;
+    }
+
+    try {
+      await _player.stop();
+
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final audioDirectory = Directory(
+        '${documentsDirectory.path}/intubation_audio',
+      );
+      await audioDirectory.create(recursive: true);
+
+      final audioPath =
+          '${audioDirectory.path}/intubation_'
+          '${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+      await _audioRecorder.start(
+        const RecordConfig(),
+        path: audioPath,
+      );
+
+      _phonemeTimer?.cancel();
+      _recordingTimeoutTimer?.cancel();
+
+      setState(() {
+        _isRecording = true;
+        _activePhonemeIndex = 0;
+      });
+
+      _phonemeTimer = Timer.periodic(
+        const Duration(milliseconds: 1500),
+        (timer) {
+          if (!mounted || !_isRecording) {
+            timer.cancel();
+            return;
+          }
+
+          setState(() {
+            _activePhonemeIndex =
+                (_activePhonemeIndex == null || _activePhonemeIndex == 5)
+                    ? 0
+                    : _activePhonemeIndex! + 1;
+          });
+        },
+      );
+
+      _recordingTimeoutTimer = Timer(
+        const Duration(seconds: 10),
+        _stopRecording,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      showErrorSnackBar(
+        context,
+        "Impossible de démarrer l'enregistrement.",
+      );
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    if (!_isRecording) {
+      return;
+    }
+
+    try {
+      _phonemeTimer?.cancel();
+      _recordingTimeoutTimer?.cancel();
+      final recordedPath = await _audioRecorder.stop();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isRecording = false;
+        _activePhonemeIndex = null;
+        if (recordedPath != null && recordedPath.isNotEmpty) {
+          _localAudioPath = recordedPath;
+          _hasRecording = true;
+        }
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isRecording = false;
+        _activePhonemeIndex = null;
+      });
+      showErrorSnackBar(
+        context,
+        "Impossible d'arrêter l'enregistrement.",
+      );
+    }
+  }
+
+  Future<void> _playRecording() async {
+    final audioPath = _localAudioPath;
+    if (audioPath == null || audioPath.isEmpty) {
+      return;
+    }
+
+    try {
+      await _player.stop();
+      await _player.setFilePath(audioPath);
+      await _player.play();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      showErrorSnackBar(
+        context,
+        "Impossible de lire l'enregistrement.",
+      );
+    }
+  }
+
+  Future<void> _deleteRecording() async {
+    final audioPath = _localAudioPath;
+
+    if (_isRecording) {
+      await _stopRecording();
+    }
+
+    await _player.stop();
+
+    if (audioPath != null && audioPath.isNotEmpty) {
+      try {
+        final file = File(audioPath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _localAudioPath = null;
+      _hasRecording = false;
+      _activePhonemeIndex = null;
+    });
+  }
+
   void _showMallampatiInfo() {
     showDialog<void>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Classification de Mallampati'),
           content: const Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('I: Luette, voile du palais et piliers visibles.'),
+              Text('I : Luette, voile du palais et piliers visibles.'),
               SizedBox(height: 8),
-              Text('II: Luette et voile du palais partiellement visibles.'),
+              Text('II : Luette et voile du palais partiellement visibles.'),
               SizedBox(height: 8),
-              Text('III: Seule la base de la luette est visible.'),
+              Text('III : Seule la base de la luette est visible.'),
               SizedBox(height: 8),
-              Text('IV: Palais mou non visible.'),
+              Text('IV : Palais mou non visible.'),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Fermer'),
             ),
           ],
@@ -372,7 +579,7 @@ class _IntubationFormScreenState extends State<IntubationFormScreen> {
             ..showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: const Color(0xFF1D9E75),
+                backgroundColor: AppColors.success,
               ),
             );
         } else if (state is IntubationError) {
@@ -391,144 +598,153 @@ class _IntubationFormScreenState extends State<IntubationFormScreen> {
                     : "Nouveau dossier d'intubation",
               ),
             ),
-            body: Stack(
-              children: [
-                Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                      child: StepProgressBar(
-                        totalSteps: _stepTitles.length,
-                        currentStep: _currentStep,
-                        stepTitles: _stepTitles,
+            body: GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                        child: StepProgressBar(
+                          totalSteps: _stepTitles.length,
+                          currentStep: _currentStep,
+                          stepTitles: _stepTitles,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: PageView(
-                        controller: _pageController,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          _MedicalHistoryStep(
-                            draft: _draft,
-                            brulureController: _brulureController,
-                            dysmorphieController: _dysmorphieController,
-                            tumeurController: _tumeurController,
-                            acteController: _acteController,
-                            onDraftChanged: (draft) {
-                              setState(() {
-                                _draft = draft;
-                              });
-                            },
-                          ),
-                          _ClinicalEvaluationStep(
-                            draft: _draft,
-                            showErrors: _showStep2Errors,
-                            onMallampatiInfoPressed: _showMallampatiInfo,
-                            onDraftChanged: (draft) {
-                              setState(() {
-                                _draft = draft;
-                              });
-                            },
-                          ),
-                          _RiskAssessmentStep(
-                            draft: _draft,
-                            showErrors: _showStep3Errors,
-                            onDraftChanged: (draft) {
-                              setState(() {
-                                _draft = draft;
-                              });
-                            },
-                          ),
-                          _ProcedureDataStep(
-                            draft: _draft,
-                            showErrors: _showStep4Errors,
-                            onDraftChanged: (draft) {
-                              setState(() {
-                                _draft = draft;
-                              });
-                            },
-                          ),
-                          _ComplicationsStep(
-                            draft: _draft,
-                            complicationsController: _complicationsController,
-                            onDraftChanged: (draft) {
-                              setState(() {
-                                _draft = draft;
-                              });
-                            },
-                          ),
-                          _AdditionalDataStep(
-                            patient: widget.patient,
-                            draft: _draft,
-                            photoLabels: _photoLabels,
-                            onImageTap: _pickImage,
-                            onImageDelete: _removeImage,
-                          ),
-                        ],
+                      Expanded(
+                        child: PageView(
+                          controller: _pageController,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _MedicalHistoryStep(
+                              draft: _draft,
+                              brulureController: _brulureController,
+                              dysmorphieController: _dysmorphieController,
+                              tumeurController: _tumeurController,
+                              acteController: _acteController,
+                              onDraftChanged: (draft) {
+                                setState(() {
+                                  _draft = draft;
+                                });
+                              },
+                            ),
+                            _ClinicalEvaluationStep(
+                              draft: _draft,
+                              showErrors: _showStep2Errors,
+                              onMallampatiInfoPressed: _showMallampatiInfo,
+                              onDraftChanged: (draft) {
+                                setState(() {
+                                  _draft = draft;
+                                });
+                              },
+                            ),
+                            _RiskAssessmentStep(
+                              draft: _draft,
+                              showErrors: _showStep3Errors,
+                              onDraftChanged: (draft) {
+                                setState(() {
+                                  _draft = draft;
+                                });
+                              },
+                            ),
+                            _ProcedureDataStep(
+                              draft: _draft,
+                              showErrors: _showStep4Errors,
+                              onDraftChanged: (draft) {
+                                setState(() {
+                                  _draft = draft;
+                                });
+                              },
+                            ),
+                            _ComplicationsStep(
+                              draft: _draft,
+                              complicationsController: _complicationsController,
+                              onDraftChanged: (draft) {
+                                setState(() {
+                                  _draft = draft;
+                                });
+                              },
+                            ),
+                            _AdditionalDataStep(
+                              patient: widget.patient,
+                              draft: _draft,
+                              photoLabels: _photoLabels,
+                              phonemes: _phonemes,
+                              isRecording: _isRecording,
+                              hasRecording: _hasRecording,
+                              localAudioPath: _localAudioPath,
+                              activePhonemeIndex: _activePhonemeIndex,
+                              onImageTap: _pickImage,
+                              onImageDelete: _removeImage,
+                              onStartRecording: _startRecording,
+                              onStopRecording: _stopRecording,
+                              onPlayRecording: _playRecording,
+                              onDeleteRecording: _deleteRecording,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF101820),
-                      border: Border(
-                        top: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.08),
+                    ],
+                  ),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        border: const Border(
+                          top: BorderSide(color: AppColors.surfaceVariant),
+                        ),
+                      ),
+                      child: SafeArea(
+                        top: false,
+                        child: Row(
+                          children: [
+                            if (_currentStep > 0)
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: isLoading ? null : _previousStep,
+                                  child: const Text('Précédent'),
+                                ),
+                              )
+                            else
+                              const Spacer(),
+                            const SizedBox(width: 12),
+                            Text(
+                              '${_currentStep + 1} / ${_stepTitles.length}',
+                              style: const TextStyle(color: AppColors.muted),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _currentStep == _stepTitles.length - 1
+                                  ? AppButton(
+                                      label: 'Enregistrer',
+                                      isLoading: isLoading,
+                                      onPressed: isLoading ? null : _saveIntubation,
+                                    )
+                                  : ElevatedButton(
+                                      onPressed: isLoading ? null : _nextStep,
+                                      child: const Text('Suivant'),
+                                    ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    child: SafeArea(
-                      top: false,
-                      child: Row(
-                        children: [
-                          if (_currentStep > 0)
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: isLoading ? null : _previousStep,
-                                child: const Text('Precedent'),
-                              ),
-                            )
-                          else
-                            const Spacer(),
-                          const SizedBox(width: 12),
-                          Text(
-                            '${_currentStep + 1} / ${_stepTitles.length}',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.65),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _currentStep == _stepTitles.length - 1
-                                ? AppButton(
-                                    label: 'Enregistrer',
-                                    isLoading: isLoading,
-                                    onPressed: isLoading ? null : _saveIntubation,
-                                  )
-                                : ElevatedButton(
-                                    onPressed: isLoading ? null : _nextStep,
-                                    child: const Text('Suivant'),
-                                  ),
-                          ),
-                        ],
+                  ),
+                  if (isLoading)
+                    Container(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                          strokeWidth: 2,
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                if (isLoading)
-                  Container(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF1D9E75),
-                      ),
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -557,29 +773,30 @@ class _MedicalHistoryStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
       children: [
         Text(
-          'Antecedents medicaux & facteurs de risque',
+          'Antécédents médicaux & facteurs de risque',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
         const SizedBox(height: 16),
         _SwitchCard(
-          title: "Antecedent d'intubation difficile",
+          title: "Antécédent d'intubation difficile",
           value: draft.antecedentIntubationDifficile,
           onChanged: (value) => onDraftChanged(
             draft.copyWith(antecedentIntubationDifficile: value),
           ),
         ),
         _SwitchCard(
-          title: "SAOS (Syndrome d'apnee obstructive du sommeil)",
+          title: "SAOS (Syndrome d'apnée obstructive du sommeil)",
           value: draft.saos,
           onChanged: (value) => onDraftChanged(draft.copyWith(saos: value)),
         ),
         _SwitchCard(
-          title: 'Diabete',
+          title: 'Diabète',
           value: draft.diabete,
           onChanged: (value) => onDraftChanged(draft.copyWith(diabete: value)),
         ),
@@ -603,7 +820,7 @@ class _MedicalHistoryStep extends StatelessWidget {
           ),
         ),
         _SwitchCard(
-          title: 'Brulure cervico-faciale',
+          title: 'Brûlure cervico-faciale',
           value: draft.brulureCervicoFaciale,
           onChanged: (value) {
             if (!value) {
@@ -613,23 +830,27 @@ class _MedicalHistoryStep extends StatelessWidget {
               draft.copyWith(
                 brulureCervicoFaciale: value,
                 brulureLocalisation: value ? draft.brulureLocalisation : null,
+                clearBrulureLocalisation: !value,
               ),
             );
           },
         ),
         if (draft.brulureCervicoFaciale) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           AppTextField(
             controller: brulureController,
-            label: 'Localisation de la brulure',
+            label: 'Localisation de la brûlure',
             onChanged: (value) => onDraftChanged(
-              draft.copyWith(brulureLocalisation: value.trim()),
+              draft.copyWith(
+                brulureLocalisation: value.trim().isEmpty ? null : value.trim(),
+                clearBrulureLocalisation: value.trim().isEmpty,
+              ),
             ),
           ),
+          const SizedBox(height: 12),
         ],
-        const SizedBox(height: 12),
         _SwitchCard(
-          title: 'Dysmorphie ou traumatisme craniofacial',
+          title: 'Dysmorphie ou traumatisme crâniofacial',
           value: draft.dysmorphieCranioFaciale,
           onChanged: (value) {
             if (!value) {
@@ -638,24 +859,28 @@ class _MedicalHistoryStep extends StatelessWidget {
             onDraftChanged(
               draft.copyWith(
                 dysmorphieCranioFaciale: value,
-                dysmorphieLocalisation: value
-                    ? draft.dysmorphieLocalisation
-                    : null,
+                dysmorphieLocalisation:
+                    value ? draft.dysmorphieLocalisation : null,
+                clearDysmorphieLocalisation: !value,
               ),
             );
           },
         ),
         if (draft.dysmorphieCranioFaciale) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           AppTextField(
             controller: dysmorphieController,
             label: 'Localisation',
             onChanged: (value) => onDraftChanged(
-              draft.copyWith(dysmorphieLocalisation: value.trim()),
+              draft.copyWith(
+                dysmorphieLocalisation:
+                    value.trim().isEmpty ? null : value.trim(),
+                clearDysmorphieLocalisation: value.trim().isEmpty,
+              ),
             ),
           ),
+          const SizedBox(height: 12),
         ],
-        const SizedBox(height: 12),
         _SwitchCard(
           title: 'Tumeur cervicofaciale',
           value: draft.tumeurCervicofaciale,
@@ -667,69 +892,64 @@ class _MedicalHistoryStep extends StatelessWidget {
               draft.copyWith(
                 tumeurCervicofaciale: value,
                 tumeurLocalisation: value ? draft.tumeurLocalisation : null,
+                clearTumeurLocalisation: !value,
               ),
             );
           },
         ),
         if (draft.tumeurCervicofaciale) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           AppTextField(
             controller: tumeurController,
             label: 'Localisation de la tumeur',
             onChanged: (value) => onDraftChanged(
-              draft.copyWith(tumeurLocalisation: value.trim()),
+              draft.copyWith(
+                tumeurLocalisation: value.trim().isEmpty ? null : value.trim(),
+                clearTumeurLocalisation: value.trim().isEmpty,
+              ),
             ),
           ),
+          const SizedBox(height: 12),
         ],
-        const SizedBox(height: 20),
+        const SizedBox(height: 8),
         Text(
-          'Symptomes associes',
+          'Symptômes',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
         ),
         const SizedBox(height: 12),
-        ToggleButtons(
-          isSelected: [draft.ronflement, draft.dysphonie, draft.dysphagie],
-          borderRadius: BorderRadius.circular(12),
-          constraints: const BoxConstraints(minHeight: 46),
-          selectedColor: Colors.white,
-          fillColor: const Color(0xFF1D9E75),
-          color: Colors.white70,
-          children: const [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 14),
-              child: Text('Ronflement'),
-            ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 14),
-              child: Text('Dysphonie'),
-            ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 14),
-              child: Text('Dysphagie'),
-            ),
-          ],
-          onPressed: (index) {
-            switch (index) {
-              case 0:
-                onDraftChanged(draft.copyWith(ronflement: !draft.ronflement));
-                break;
-              case 1:
-                onDraftChanged(draft.copyWith(dysphonie: !draft.dysphonie));
-                break;
-              case 2:
-                onDraftChanged(draft.copyWith(dysphagie: !draft.dysphagie));
-                break;
-            }
-          },
+        _SwitchCard(
+          title: 'Ronflement',
+          value: draft.ronflement,
+          onChanged: (value) => onDraftChanged(
+            draft.copyWith(ronflement: value),
+          ),
         ),
-        const SizedBox(height: 20),
+        _SwitchCard(
+          title: 'Dysphonie',
+          value: draft.dysphonie,
+          onChanged: (value) => onDraftChanged(
+            draft.copyWith(dysphonie: value),
+          ),
+        ),
+        _SwitchCard(
+          title: 'Dysphagie',
+          value: draft.dysphagie,
+          onChanged: (value) => onDraftChanged(
+            draft.copyWith(dysphagie: value),
+          ),
+        ),
+        const SizedBox(height: 12),
         AppTextField(
           controller: acteController,
-          label: 'Acte operatoire',
+          label: 'Acte opératoire',
+          hintText: 'Ex: cholécystectomie',
           onChanged: (value) => onDraftChanged(
-            draft.copyWith(acteOperatoire: value.trim()),
+            draft.copyWith(
+              acteOperatoire: value.trim().isEmpty ? null : value.trim(),
+              clearActeOperatoire: value.trim().isEmpty,
+            ),
           ),
         ),
         const SizedBox(height: 20),
@@ -748,16 +968,17 @@ class _MedicalHistoryStep extends StatelessWidget {
             (index) => ChoiceChip(
               label: Text('$index'),
               selected: draft.scoreStopbang == index,
-              selectedColor: const Color(0xFF1D9E75),
+              selectedColor: AppColors.primary,
+              onSelected: (_) => onDraftChanged(
+                draft.copyWith(
+                  scoreStopbang: draft.scoreStopbang == index ? null : index,
+                  clearScoreStopbang: draft.scoreStopbang == index,
+                ),
+              ),
               labelStyle: TextStyle(
                 color: draft.scoreStopbang == index
                     ? Colors.white
-                    : Colors.white70,
-              ),
-              onSelected: (_) => onDraftChanged(
-                draft.scoreStopbang == index
-                    ? draft.copyWith(clearScoreStopbang: true)
-                    : draft.copyWith(scoreStopbang: index),
+                    : AppColors.muted,
               ),
             ),
           ),
@@ -783,10 +1004,11 @@ class _ClinicalEvaluationStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
       children: [
         Text(
-          'Evaluation clinique pre-intubation',
+          'Évaluation clinique pré-intubation',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -816,7 +1038,7 @@ class _ClinicalEvaluationStep extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         SegmentedSelector(
-          label: 'Distance thyromentonniere (DTM)',
+          label: 'Distance thyromentonnière (DTM)',
           options: const ['< 6 cm', '> 6 cm'],
           selected: draft.dtm,
           required: true,
@@ -845,7 +1067,7 @@ class _ClinicalEvaluationStep extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         SegmentedSelector(
-          label: 'Mobilite cervicale',
+          label: 'Mobilité cervicale',
           options: const ['Souple', 'Raide'],
           selected: draft.mobiliteCervicale,
           required: true,
@@ -880,36 +1102,37 @@ class _RiskAssessmentStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final recommendation = switch (draft.intubationPrevue) {
       'Facile' => _InfoCardData(
-          color: Colors.green,
+          color: AppColors.success,
           icon: Icons.check_circle_outline,
-          text: 'Intubation standard prevue. Procedure habituelle.',
+          text: 'Intubation standard prévue. Procédure habituelle.',
         ),
       'Difficile' => _InfoCardData(
-          color: Colors.amber,
+          color: AppColors.warning,
           icon: Icons.warning_amber_rounded,
           text:
-              'Intubation difficile anticipee. Prevoir materiel alternatif.',
+              'Intubation difficile anticipée. Prévoir du matériel alternatif.',
         ),
       _ => _InfoCardData(
-          color: Colors.grey,
+          color: AppColors.muted,
           icon: Icons.info_outline,
           text:
-              'Selectionnez une option pour voir les recommandations.',
+              'Sélectionnez une option pour voir les recommandations.',
         ),
     };
 
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
       children: [
         Text(
-          "Evaluation du risque d'intubation",
+          "Évaluation du risque d'intubation",
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
         const SizedBox(height: 20),
         SegmentedSelector(
-          label: 'Intubation prevue',
+          label: 'Intubation prévue',
           options: const ['Facile', 'Difficile'],
           selected: draft.intubationPrevue,
           required: true,
@@ -958,20 +1181,21 @@ class _ProcedureDataStep extends StatelessWidget {
   });
 
   String? get _cormackDescription => switch (draft.scoreCormack) {
-        'I' => 'Glotte entierement visible',
-        'II' => 'Seule la partie posterieure est visible',
-        'III' => "Seulement l'epiglotte est visible",
-        'IV' => "Ni l'epiglotte ni la glotte ne sont visibles",
+        'I' => 'Glotte entièrement visible',
+        'II' => 'Seule la partie postérieure est visible',
+        'III' => "Seulement l'épiglotte est visible",
+        'IV' => "Ni l'épiglotte ni la glotte ne sont visibles",
         _ => null,
       };
 
   @override
   Widget build(BuildContext context) {
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
       children: [
         Text(
-          "Deroulement de l'acte",
+          "Déroulement de l'acte",
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -999,13 +1223,13 @@ class _ProcedureDataStep extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         _SwitchCard(
-          title: 'Videolaryngoscope utilise',
+          title: 'Vidéolaryngoscope utilisé',
           value: draft.videolaryngoscope,
           onChanged: (value) =>
               onDraftChanged(draft.copyWith(videolaryngoscope: value)),
         ),
         _SwitchCard(
-          title: "Guide d'Eichmann utilise",
+          title: "Guide d'Eichmann utilisé",
           value: draft.guideEichmann,
           onChanged: (value) =>
               onDraftChanged(draft.copyWith(guideEichmann: value)),
@@ -1024,7 +1248,7 @@ class _ProcedureDataStep extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             _cormackDescription!,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
+            style: const TextStyle(color: AppColors.muted),
           ),
         ],
       ],
@@ -1046,17 +1270,18 @@ class _ComplicationsStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
       children: [
         Text(
-          'Difficultes rencontrees & complications',
+          'Difficultés rencontrées & complications',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
         const SizedBox(height: 20),
         _SwitchCard(
-          title: 'Intubation difficile (reelle, selon SFAR)',
+          title: 'Intubation difficile (réelle, selon SFAR)',
           value: draft.intubationDifficileReelle,
           onChanged: (value) => onDraftChanged(
             draft.copyWith(intubationDifficileReelle: value),
@@ -1067,12 +1292,14 @@ class _ComplicationsStep extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.15),
+              color: AppColors.warning.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.amber.withValues(alpha: 0.24)),
+              border: Border.all(
+                color: AppColors.warning.withValues(alpha: 0.24),
+              ),
             ),
             child: const Text(
-              'Intubation difficile confirmee selon les criteres SFAR.',
+              'Intubation difficile confirmée selon les critères SFAR.',
             ),
           ),
         ],
@@ -1080,11 +1307,14 @@ class _ComplicationsStep extends StatelessWidget {
         AppTextField(
           controller: complicationsController,
           label: 'Description des complications (libre)',
-          hintText: 'Decrivez les complications eventuelles...',
+          hintText: 'Décrivez les complications éventuelles...',
           minLines: 3,
           maxLines: 5,
           onChanged: (value) => onDraftChanged(
-            draft.copyWith(complications: value.trim()),
+            draft.copyWith(
+              complications: value.trim().isEmpty ? null : value.trim(),
+              clearComplications: value.trim().isEmpty,
+            ),
           ),
         ),
       ],
@@ -1096,15 +1326,33 @@ class _AdditionalDataStep extends StatelessWidget {
   final PatientEntity patient;
   final IntubationEntity draft;
   final List<String> photoLabels;
+  final List<String> phonemes;
+  final bool isRecording;
+  final bool hasRecording;
+  final String? localAudioPath;
+  final int? activePhonemeIndex;
   final ValueChanged<int> onImageTap;
   final ValueChanged<int> onImageDelete;
+  final Future<void> Function() onStartRecording;
+  final Future<void> Function() onStopRecording;
+  final Future<void> Function() onPlayRecording;
+  final Future<void> Function() onDeleteRecording;
 
   const _AdditionalDataStep({
     required this.patient,
     required this.draft,
     required this.photoLabels,
+    required this.phonemes,
+    required this.isRecording,
+    required this.hasRecording,
+    required this.localAudioPath,
+    required this.activePhonemeIndex,
     required this.onImageTap,
     required this.onImageDelete,
+    required this.onStartRecording,
+    required this.onStopRecording,
+    required this.onPlayRecording,
+    required this.onDeleteRecording,
   });
 
   @override
@@ -1115,10 +1363,11 @@ class _AdditionalDataStep extends StatelessWidget {
     }
 
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
       children: [
         Text(
-          'Donnees complementaires',
+          'Données complémentaires',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -1157,14 +1406,117 @@ class _AdditionalDataStep extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(18),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Recapitulatif',
+                'Enregistrement vocal (Bonus)',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Phonèmes requis: أ خ ه ح غ ع',
+                style: TextStyle(color: AppColors.muted),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: List.generate(
+                  phonemes.length,
+                  (index) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: activePhonemeIndex == index
+                          ? AppColors.primary
+                          : AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: Text(
+                        phonemes[index],
+                        style: TextStyle(
+                          color: activePhonemeIndex == index
+                              ? Colors.white
+                              : AppColors.onSurface,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: _AudioActionButton(
+                      icon: Icons.mic,
+                      label: 'Enregistrer',
+                      color: AppColors.primary,
+                      onTap: isRecording ? null : onStartRecording,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _AudioActionButton(
+                      icon: Icons.stop,
+                      label: 'Stop',
+                      color: AppColors.danger,
+                      onTap: isRecording ? onStopRecording : null,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _AudioActionButton(
+                      icon: Icons.play_arrow,
+                      label: 'Lire',
+                      color: AppColors.muted,
+                      onTap: hasRecording ? onPlayRecording : null,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _AudioActionButton(
+                      icon: Icons.delete_outline,
+                      label: 'Supprimer',
+                      color: AppColors.warning,
+                      onTap: hasRecording ? onDeleteRecording : null,
+                    ),
+                  ),
+                ],
+              ),
+              if (localAudioPath?.isNotEmpty == true) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Un enregistrement vocal est prêt à être enregistré.',
+                  style: TextStyle(color: AppColors.muted),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Récapitulatif',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -1175,7 +1527,7 @@ class _AdditionalDataStep extends StatelessWidget {
               _SummaryRow(label: 'Mallampati', value: draft.mallampati ?? '-'),
               _SummaryRow(label: 'DTM', value: draft.dtm ?? '-'),
               _SummaryRow(
-                label: 'Intubation prevue',
+                label: 'Intubation prévue',
                 value: draft.intubationPrevue ?? '-',
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(
@@ -1184,8 +1536,8 @@ class _AdditionalDataStep extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: (draft.intubationPrevue == 'Difficile'
-                            ? Colors.red
-                            : Colors.green)
+                            ? AppColors.danger
+                            : AppColors.success)
                         .withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(999),
                   ),
@@ -1193,16 +1545,13 @@ class _AdditionalDataStep extends StatelessWidget {
                     draft.intubationPrevue ?? '-',
                     style: TextStyle(
                       color: draft.intubationPrevue == 'Difficile'
-                          ? Colors.red
-                          : Colors.green,
+                          ? AppColors.danger
+                          : AppColors.success,
                     ),
                   ),
                 ),
               ),
-              _SummaryRow(
-                label: 'Cormack',
-                value: draft.scoreCormack ?? '-',
-              ),
+              _SummaryRow(label: 'Cormack', value: draft.scoreCormack ?? '-'),
               _SummaryRow(
                 label: 'Tentatives',
                 value: '${draft.nombreTentatives ?? 1}',
@@ -1237,7 +1586,7 @@ class _SwitchCard extends StatelessWidget {
       child: SwitchListTile(
         title: Text(title),
         value: value,
-        activeThumbColor: const Color(0xFF1D9E75),
+        activeThumbColor: AppColors.primary,
         onChanged: onChanged,
       ),
     );
@@ -1382,6 +1731,39 @@ class _PhotoSlot extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AudioActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Future<void> Function()? onTap;
+
+  const _AudioActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onTap == null ? null : () => onTap!.call(),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: onTap == null ? AppColors.muted : color,
+        side: BorderSide(
+          color: onTap == null ? AppColors.muted : color,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+      ),
+      icon: Icon(icon, size: 18),
+      label: Text(
+        label,
+        textAlign: TextAlign.center,
       ),
     );
   }

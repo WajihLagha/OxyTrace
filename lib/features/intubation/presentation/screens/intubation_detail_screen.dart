@@ -34,9 +34,9 @@ class _IntubationDetailScreenState extends State<IntubationDetailScreen> {
     'Vue de face',
     'Vue de profil',
     'Bouche ouverte',
-    'DD profil neutre',
-    'DD profil en extension',
-    'Autre',
+    'LIP test face',
+    'DD vue profil neutre',
+    'DD vue profil en extension',
   ];
 
   late IntubationEntity _intubation;
@@ -400,6 +400,16 @@ class _IntubationDetailScreenState extends State<IntubationDetailScreen> {
                           : 'Aucune complication signalée',
                     ),
                   ),
+                  if (_intubation.audioPath?.isNotEmpty == true) ...[
+                    const SizedBox(height: 12),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Enregistrement audio disponible',
+                        style: TextStyle(color: AppColors.muted),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               ExpansionTile(

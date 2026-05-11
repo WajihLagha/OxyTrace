@@ -26,7 +26,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 3,
+      version: 5,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
@@ -99,7 +99,8 @@ class DatabaseHelper {
         score_cormack TEXT,
         intubation_difficile_reelle INTEGER NOT NULL DEFAULT 0,
         complications TEXT,
-        photo_paths TEXT
+        photo_paths TEXT,
+        audio_path TEXT
       )
     ''');
   }
@@ -163,6 +164,69 @@ class DatabaseHelper {
           photo_paths TEXT
         )
       ''');
+    }
+
+    if (oldVersion < 4) {
+      await _addColumnIfMissing(
+        db,
+        table: 'intubations',
+        column: 'ronflement',
+        definition: 'INTEGER NOT NULL DEFAULT 0',
+      );
+      await _addColumnIfMissing(
+        db,
+        table: 'intubations',
+        column: 'dysphonie',
+        definition: 'INTEGER NOT NULL DEFAULT 0',
+      );
+      await _addColumnIfMissing(
+        db,
+        table: 'intubations',
+        column: 'dysphagie',
+        definition: 'INTEGER NOT NULL DEFAULT 0',
+      );
+      await _addColumnIfMissing(
+        db,
+        table: 'intubations',
+        column: 'tumeur_cervicofaciale',
+        definition: 'INTEGER NOT NULL DEFAULT 0',
+      );
+      await _addColumnIfMissing(
+        db,
+        table: 'intubations',
+        column: 'tumeur_localisation',
+        definition: 'TEXT',
+      );
+      await _addColumnIfMissing(
+        db,
+        table: 'intubations',
+        column: 'acte_operatoire',
+        definition: 'TEXT',
+      );
+    }
+
+    if (oldVersion < 5) {
+      await _addColumnIfMissing(
+        db,
+        table: 'intubations',
+        column: 'audio_path',
+        definition: 'TEXT',
+      );
+    }
+  }
+
+  Future<void> _addColumnIfMissing(
+    Database db, {
+    required String table,
+    required String column,
+    required String definition,
+  }) async {
+    final columns = await db.rawQuery('PRAGMA table_info($table)');
+    final exists = columns.any((entry) => entry['name'] == column);
+    if (!exists) {
+      await db.execute(
+        'ALTER TABLE $table ADD COLUMN $column $definition',
+      );
     }
   }
 }

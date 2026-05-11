@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Cette application utilise l'appareil photo pour documenter les dossiers d'intubation.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Cette application utilise le microphone pour enregistrer les phonèmes du patient.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Cette application accède à votre photothèque pour joindre des photos cliniques.</string>
 	<key>UIApplicationSceneManifest</key>

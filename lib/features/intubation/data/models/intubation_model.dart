@@ -41,6 +41,7 @@ class IntubationModel extends IntubationEntity {
     super.intubationDifficileReelle,
     super.complications,
     super.photoPaths,
+    super.audioPath,
   });
 
   factory IntubationModel.fromEntity(IntubationEntity entity) {
@@ -82,6 +83,7 @@ class IntubationModel extends IntubationEntity {
       intubationDifficileReelle: entity.intubationDifficileReelle,
       complications: entity.complications,
       photoPaths: entity.photoPaths,
+      audioPath: entity.audioPath,
     );
   }
 
@@ -124,6 +126,7 @@ class IntubationModel extends IntubationEntity {
       'intubation_difficile_reelle': intubationDifficileReelle ? 1 : 0,
       'complications': complications,
       'photo_paths': jsonEncode(photoPaths),
+      'audio_path': audioPath,
     };
 
     if (id != null) {
@@ -184,6 +187,7 @@ class IntubationModel extends IntubationEntity {
           (map['intubation_difficile_reelle'] as int? ?? 0) == 1,
       complications: map['complications'] as String?,
       photoPaths: decodedPhotos,
+      audioPath: map['audio_path'] as String?,
     );
   }
 
@@ -201,14 +205,18 @@ class IntubationModel extends IntubationEntity {
     bool? traumatismeCervical,
     bool? brulureCervicoFaciale,
     String? brulureLocalisation,
+    bool clearBrulureLocalisation = false,
     bool? dysmorphieCranioFaciale,
     String? dysmorphieLocalisation,
+    bool clearDysmorphieLocalisation = false,
     bool? tumeurCervicofaciale,
     String? tumeurLocalisation,
+    bool clearTumeurLocalisation = false,
     bool? ronflement,
     bool? dysphonie,
     bool? dysphagie,
     String? acteOperatoire,
+    bool clearActeOperatoire = false,
     int? scoreStopbang,
     bool clearScoreStopbang = false,
     String? mallampati,
@@ -226,7 +234,10 @@ class IntubationModel extends IntubationEntity {
     String? scoreCormack,
     bool? intubationDifficileReelle,
     String? complications,
+    bool clearComplications = false,
     List<String>? photoPaths,
+    String? audioPath,
+    bool clearAudioPath = false,
   }) {
     return IntubationModel.fromEntity(
       super.copyWith(
@@ -242,14 +253,18 @@ class IntubationModel extends IntubationEntity {
         traumatismeCervical: traumatismeCervical,
         brulureCervicoFaciale: brulureCervicoFaciale,
         brulureLocalisation: brulureLocalisation,
+        clearBrulureLocalisation: clearBrulureLocalisation,
         dysmorphieCranioFaciale: dysmorphieCranioFaciale,
         dysmorphieLocalisation: dysmorphieLocalisation,
+        clearDysmorphieLocalisation: clearDysmorphieLocalisation,
         tumeurCervicofaciale: tumeurCervicofaciale,
         tumeurLocalisation: tumeurLocalisation,
+        clearTumeurLocalisation: clearTumeurLocalisation,
         ronflement: ronflement,
         dysphonie: dysphonie,
         dysphagie: dysphagie,
         acteOperatoire: acteOperatoire,
+        clearActeOperatoire: clearActeOperatoire,
         scoreStopbang: scoreStopbang,
         clearScoreStopbang: clearScoreStopbang,
         mallampati: mallampati,
@@ -267,7 +282,10 @@ class IntubationModel extends IntubationEntity {
         scoreCormack: scoreCormack,
         intubationDifficileReelle: intubationDifficileReelle,
         complications: complications,
+        clearComplications: clearComplications,
         photoPaths: photoPaths,
+        audioPath: audioPath,
+        clearAudioPath: clearAudioPath,
       ),
     );
   }
