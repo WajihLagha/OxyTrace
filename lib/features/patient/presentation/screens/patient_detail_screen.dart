@@ -404,11 +404,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ),
-                          ElevatedButton.icon(
-                            onPressed: _openIntubationForm,
-                            icon: const Icon(Icons.add),
-                            label: const Text('Nouveau dossier'),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 16),

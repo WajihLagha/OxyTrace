@@ -1,5 +1,5 @@
 class AppStrings {
-  static const String appName = 'IntubApp';
+  static const String appName = 'OxyTrace';
   static const String appSubtitle =
       "Application médicale d'intubation";
   static const String hospitalName = "Service d'Anesthésie-Réanimation";

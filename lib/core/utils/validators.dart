@@ -27,7 +27,7 @@ class Validators {
     }
 
     if (password.length < 6) {
-      return 'Le mot de passe doit contenir au moins 6 caractères.';
+      return 'Le mot de passe doit contenir au moins 8 caractères.';
     }
 
     return null;
