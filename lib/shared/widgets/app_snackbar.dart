@@ -3,15 +3,21 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 
 void showSuccessSnackBar(BuildContext context, String message) {
-  _showSnackBar(context, message, AppColors.success, Icons.check_circle, 3);
+  _showSnackBar(
+    context,
+    message,
+    AppColors.of(context).success,
+    Icons.check_circle,
+    3,
+  );
 }
 
 void showErrorSnackBar(BuildContext context, String message) {
-  _showSnackBar(context, message, AppColors.danger, Icons.error, 4);
+  _showSnackBar(context, message, AppColors.of(context).danger, Icons.error, 4);
 }
 
 void showInfoSnackBar(BuildContext context, String message) {
-  _showSnackBar(context, message, AppColors.info, Icons.info, 3);
+  _showSnackBar(context, message, AppColors.of(context).info, Icons.info, 3);
 }
 
 void showSuccess(BuildContext context, String message) {
@@ -29,18 +35,19 @@ void _showSnackBar(
   IconData icon,
   int seconds,
 ) {
+  final colors = AppColors.of(context);
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(icon, color: Colors.white),
+            Icon(icon, color: colors.onPrimary),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colors.onPrimary),
               ),
             ),
           ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:navbar_router/navbar_router.dart';
 
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -11,8 +12,11 @@ import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/widgets/patient_tile.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/presentation/screens/profile_screen.dart';
+import '../../../bmi/presentation/screens/bmi_calculator_screen.dart';
 import '../../data/datasources/patient_local_datasource.dart';
+import '../../data/services/patient_sync_service.dart';
 import '../../domain/entities/patient_entity.dart';
+import '../cubit/dashboard_nav_cubit.dart';
 import '../cubit/patient_cubit.dart';
 import '../cubit/patient_state.dart';
 import 'patient_detail_screen.dart';
@@ -27,13 +31,25 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _currentIndex = 0;
+  late final DashboardNavCubit _navCubit;
+  late final PatientSyncService _syncService;
   late Future<int> _totalPatientsFuture;
+  bool _isSyncing = false;
 
   @override
   void initState() {
     super.initState();
+    _navCubit = DashboardNavCubit();
+    _syncService = PatientSyncService(
+      localDatasource: sl<PatientLocalDatasource>(),
+    );
     _refreshDashboard();
+  }
+
+  @override
+  void dispose() {
+    _navCubit.close();
+    super.dispose();
   }
 
   void _refreshDashboard() {
@@ -90,7 +106,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 
+  Future<void> _syncPatients() async {
+    if (_isSyncing) {
+      return;
+    }
+
+    setState(() => _isSyncing = true);
+
+    try {
+      final result = await _syncService.syncPendingPatients();
+      if (!mounted) {
+        return;
+      }
+
+      final message = result.pendingBeforeSync == 0
+          ? 'Aucun dossier en attente de synchronisation.'
+          : '${result.syncedCount} dossier(s) synchronisé(s).';
+      showSuccessSnackBar(context, message);
+      setState(_refreshDashboard);
+    } on PatientSyncException catch (error) {
+      if (mounted) {
+        showErrorSnackBar(context, error.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        showErrorSnackBar(
+          context,
+          'La synchronisation a échoué. Veuillez réessayer.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
+    }
+  }
+
   Widget _buildHomeTab() {
+    final colors = AppColors.of(context);
     return BlocBuilder<PatientCubit, PatientState>(
       builder: (context, state) {
         final recentCount =
@@ -98,9 +151,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final latestPatients = state is PatientListLoaded
             ? state.patients.take(5).toList()
             : <PatientEntity>[];
+        final pendingSyncCount = state is PatientListLoaded
+            ? state.patients.where((patient) => !patient.isSynced).length
+            : 0;
+        final syncedCount = state is PatientListLoaded
+            ? state.patients.where((patient) => patient.isSynced).length
+            : 0;
 
         return RefreshIndicator(
-          color: AppColors.primary,
+          color: colors.primary,
           onRefresh: () async {
             setState(_refreshDashboard);
             await _totalPatientsFuture;
@@ -155,13 +214,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     label: 'Rechercher',
                     onTap: () => _openPatientList(openSearch: true),
                   ),
-                  _ActionCard(
-                    icon: Icons.sync,
-                    label: 'Synchronisation',
-                    onTap: () => showInfoSnackBar(
-                      context,
-                      'Fonctionnalité à venir',
-                    ),
+                  _SyncActionCard(
+                    pendingCount: pendingSyncCount,
+                    syncedCount: syncedCount,
+                    isLoading: _isSyncing,
+                    onTap: _syncPatients,
                   ),
                 ],
               ),
@@ -183,11 +240,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 12),
               if (state is PatientLoading)
-                const Center(
+                Center(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 48),
+                    padding: const EdgeInsets.symmetric(vertical: 48),
                     child: CircularProgressIndicator(
-                      color: AppColors.primary,
+                      color: colors.primary,
                       strokeWidth: 2,
                     ),
                   ),
@@ -207,7 +264,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: colors.surface,
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: Column(
@@ -215,6 +272,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         .map(
                           (patient) => PatientTile(
                             patient: patient,
+                            showSyncStatus: true,
                             onTap: () => _openPatientDetail(patient),
                           ),
                         )
@@ -230,88 +288,135 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tabs = [
-      _buildHomeTab(),
-      const PatientListScreen(showAppBar: false, showFab: false),
-      const ProfileScreen(embedded: true),
+    final colors = AppColors.of(context);
+    final navItems = [
+      NavbarItem(
+        Icons.home_outlined,
+        'Accueil',
+        backgroundColor: colors.surface,
+        selectedIcon: Icon(Icons.home, color: colors.primary, size: 26),
+      ),
+      NavbarItem(
+        Icons.people_outline,
+        'Patients',
+        backgroundColor: colors.surface,
+        selectedIcon: Icon(Icons.people, color: colors.primary, size: 26),
+      ),
+      NavbarItem(
+        Icons.monitor_weight_outlined,
+        'BMI',
+        backgroundColor: colors.surface,
+        selectedIcon: Icon(
+          Icons.monitor_weight,
+          color: colors.primary,
+          size: 26,
+        ),
+      ),
+      NavbarItem(
+        Icons.person_outline,
+        'Profil',
+        backgroundColor: colors.surface,
+        selectedIcon: Icon(Icons.person, color: colors.primary, size: 26),
+      ),
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Image.asset(
-              AppAssets.logo,
-              width: 32,
-              height: 32,
-              errorBuilder: (context, error, stackTrace) => const Icon(
-                Icons.medical_services,
-                size: 28,
-                color: AppColors.primary,
+    return BlocProvider<DashboardNavCubit>.value(
+      value: _navCubit,
+      child: BlocBuilder<DashboardNavCubit, int>(
+        builder: (context, currentIndex) {
+          return Scaffold(
+            appBar: AppBar(
+              automaticallyImplyLeading: false,
+              title: Row(
+                children: [
+                  Image.asset(
+                    AppAssets.logo,
+                    width: 32,
+                    height: 32,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.medical_services,
+                      size: 28,
+                      color: colors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    AppStrings.appName,
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  onPressed: _logout,
+                  icon: const Icon(Icons.logout),
+                  tooltip: 'Se déconnecter',
+                ),
+              ],
+            ),
+            body: GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: NavbarRouter(
+                initialIndex: currentIndex,
+                type: NavbarType.notched,
+                onChanged: (index) =>
+                    context.read<DashboardNavCubit>().selectTab(index),
+                errorBuilder: (_) => const Center(
+                  child: Text('Page introuvable'),
+                ),
+                decoration: NotchedDecoration(
+                  backgroundColor: colors.surface,
+                  selectedIconColor: colors.primary,
+                  unselectedIconColor: colors.muted,
+                  unselectedLabelColor: colors.muted,
+                  elevation: 8,
+                ),
+                destinations: [
+                  DestinationRouter(
+                    navbarItem: navItems[0],
+                    destinations: [
+                      Destination(route: '/', widget: _buildHomeTab()),
+                    ],
+                    initialRoute: '/',
+                  ),
+                  DestinationRouter(
+                    navbarItem: navItems[1],
+                    destinations: [
+                      Destination(
+                        route: '/',
+                        widget: PatientListScreen(
+                          showAppBar: false,
+                          showFab: false,
+                        ),
+                      ),
+                    ],
+                    initialRoute: '/',
+                  ),
+                  DestinationRouter(
+                    navbarItem: navItems[2],
+                    destinations: [
+                      Destination(
+                        route: '/',
+                        widget: const BmiCalculatorScreen(),
+                      ),
+                    ],
+                    initialRoute: '/',
+                  ),
+                  DestinationRouter(
+                    navbarItem: navItems[3],
+                    destinations: [
+                      Destination(
+                        route: '/',
+                        widget: ProfileScreen(embedded: true),
+                      ),
+                    ],
+                    initialRoute: '/',
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 10),
-            const Text(
-              AppStrings.appName,
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: _logout,
-            icon: const Icon(Icons.logout),
-            tooltip: 'Se deconnecter',
-          ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_none),
-          ),
-        ],
-      ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: IndexedStack(
-          index: _currentIndex,
-          children: tabs,
-        ),
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: const Border(
-            top: BorderSide(
-              color: AppColors.surfaceVariant,
-              width: 0.5,
-            ),
-          ),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (value) => setState(() => _currentIndex = value),
-          backgroundColor: AppColors.surface,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.muted,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Accueil',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_outline),
-              activeIcon: Icon(Icons.people),
-              label: 'Patients',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profil',
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -328,13 +433,14 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: const Border(
-          top: BorderSide(color: AppColors.primary, width: 3),
+        border: Border(
+          top: BorderSide(color: colors.primary, width: 3),
         ),
       ),
       child: Column(
@@ -343,14 +449,14 @@ class _StatCard extends StatelessWidget {
           Text(
             value,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: AppColors.primary,
+                  color: colors.primary,
                   fontWeight: FontWeight.bold,
                 ),
           ),
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(color: AppColors.muted),
+            style: TextStyle(color: colors.muted),
           ),
         ],
       ),
@@ -371,8 +477,9 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Material(
-      color: AppColors.surface,
+      color: colors.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -382,7 +489,7 @@ class _ActionCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: AppColors.primary, size: 32),
+              Icon(icon, color: colors.primary, size: 32),
               const SizedBox(height: 12),
               Text(
                 label,
@@ -393,6 +500,125 @@ class _ActionCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SyncActionCard extends StatelessWidget {
+  final int pendingCount;
+  final int syncedCount;
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  const _SyncActionCard({
+    required this.pendingCount,
+    required this.syncedCount,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: isLoading ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  isLoading
+                      ? SizedBox(
+                          width: 26,
+                          height: 26,
+                          child: CircularProgressIndicator(
+                            color: colors.primary,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Icon(Icons.sync, color: colors.primary, size: 30),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Synchronisation',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _SyncCountLine(
+                label: 'En attente',
+                value: pendingCount,
+                color: colors.warning,
+              ),
+              const SizedBox(height: 6),
+              _SyncCountLine(
+                label: 'Synchronisé',
+                value: syncedCount,
+                color: colors.success,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SyncCountLine extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color color;
+
+  const _SyncCountLine({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: colors.muted, fontSize: 12),
+          ),
+        ),
+        Text(
+          value.toString(),
+          style: TextStyle(
+            color: colors.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }

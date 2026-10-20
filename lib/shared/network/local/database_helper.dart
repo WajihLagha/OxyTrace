@@ -26,7 +26,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 5,
+      version: 6,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
@@ -56,6 +56,7 @@ class DatabaseHelper {
         sex TEXT NOT NULL,
         birth_date TEXT NOT NULL,
         bmi REAL NOT NULL,
+        is_synced INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -211,6 +212,15 @@ class DatabaseHelper {
         table: 'intubations',
         column: 'audio_path',
         definition: 'TEXT',
+      );
+    }
+
+    if (oldVersion < 6) {
+      await _addColumnIfMissing(
+        db,
+        table: 'patients',
+        column: 'is_synced',
+        definition: 'INTEGER NOT NULL DEFAULT 0',
       );
     }
   }

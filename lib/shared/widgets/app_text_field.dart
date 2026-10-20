@@ -49,6 +49,8 @@ class _AppTextFieldState extends State<AppTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final muted = scheme.onSurface.withValues(alpha: 0.58);
     return TextFormField(
       controller: widget.controller,
       validator: widget.validator,
@@ -59,25 +61,25 @@ class _AppTextFieldState extends State<AppTextField> {
       onChanged: widget.onChanged,
       minLines: widget.minLines,
       maxLines: widget.maxLines,
-      cursorColor: AppColors.primary,
+      cursorColor: scheme.primary,
       decoration: InputDecoration(
         labelText: widget.label,
         helperText: widget.helperText,
         hintText: widget.hintText,
         filled: true,
-        fillColor: AppColors.surfaceVariant,
-        labelStyle: const TextStyle(color: AppColors.muted),
+        fillColor: scheme.secondaryContainer,
+        labelStyle: TextStyle(color: muted),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.surfaceVariant),
+          borderSide: BorderSide(color: scheme.secondaryContainer),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.surfaceVariant),
+          borderSide: BorderSide(color: scheme.secondaryContainer),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary),
+          borderSide: BorderSide(color: scheme.primary),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

@@ -9,6 +9,7 @@ class PatientModel extends PatientEntity {
     required super.sex,
     required super.birthDate,
     required super.bmi,
+    super.isSynced = false,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -21,6 +22,7 @@ class PatientModel extends PatientEntity {
       'sex': sex,
       'birth_date': birthDate.toIso8601String().split('T').first,
       'bmi': bmi,
+      'is_synced': isSynced ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -41,6 +43,7 @@ class PatientModel extends PatientEntity {
       sex: map['sex'] as String,
       birthDate: DateTime.parse(map['birth_date'] as String),
       bmi: (map['bmi'] as num).toDouble(),
+      isSynced: ((map['is_synced'] as int?) ?? 0) == 1,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );
@@ -55,6 +58,7 @@ class PatientModel extends PatientEntity {
       sex: entity.sex,
       birthDate: entity.birthDate,
       bmi: entity.bmi,
+      isSynced: entity.isSynced,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     );
@@ -68,6 +72,7 @@ class PatientModel extends PatientEntity {
     String? sex,
     DateTime? birthDate,
     double? bmi,
+    bool? isSynced,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -79,6 +84,7 @@ class PatientModel extends PatientEntity {
       sex: sex ?? this.sex,
       birthDate: birthDate ?? this.birthDate,
       bmi: bmi ?? this.bmi,
+      isSynced: isSynced ?? this.isSynced,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

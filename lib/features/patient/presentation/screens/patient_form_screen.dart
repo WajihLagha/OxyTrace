@@ -174,6 +174,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       sex: _selectedSex!,
       birthDate: _selectedBirthDate!,
       bmi: _parseBmi()!,
+      isSynced: false,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     );

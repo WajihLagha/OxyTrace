@@ -8,6 +8,7 @@ class PatientEntity extends Equatable {
   final String sex;
   final DateTime birthDate;
   final double bmi;
+  final bool isSynced;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -19,6 +20,7 @@ class PatientEntity extends Equatable {
     required this.sex,
     required this.birthDate,
     required this.bmi,
+    this.isSynced = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -36,6 +38,7 @@ class PatientEntity extends Equatable {
         sex,
         birthDate,
         bmi,
+        isSynced,
         createdAt,
         updatedAt,
       ];

@@ -7,32 +7,59 @@ environment:
   sdk: ^3.11.5
 
 dependencies:
+  # Flutter SDK framework used to build the mobile UI.
   flutter:
     sdk: flutter
+  # iOS-style icon set for Cupertino widgets.
   cupertino_icons: ^1.0.8
+  # BLoC/Cubit state management for presentation logic.
   flutter_bloc: ^8.1.3
+  # SQLite database access for local persistent storage.
   sqflite: ^2.3.0
+  # Cryptographic hashing utilities.
   crypto: ^3.0.3
+  # Functional programming helpers such as Either.
   dartz: ^0.10.1
+  # Value equality helpers for entities, states, and models.
   equatable: ^2.0.5
+  # Service locator used for dependency injection.
   get_it: ^7.6.4
+  # PDF document generation.
   pdf: ^3.10.7
+  # PDF previewing, printing, and sharing support.
   printing: ^5.12.0
+  # Native share sheet integration for exporting files or text.
   share_plus: ^7.2.2
+  # Camera and gallery image selection.
   image_picker: ^1.0.7
+  # Access to platform-specific storage directories.
   path_provider: ^2.1.2
+  # Lightweight key-value storage for local settings/session data.
   shared_preferences: ^2.2.2
+  # Network connectivity status detection.
+  connectivity_plus: ^6.1.4
+  # Audio recording support.
   record: ^5.1.0
+  # Audio playback support.
   just_audio: ^0.9.36
+  # Runtime permission requests for camera, microphone, and storage.
   permission_handler: ^11.3.0
+  # Generates platform launcher icons from app image assets.
   flutter_launcher_icons: ^0.14.4
+  # Email one-time-passwor5d generation and verification.
+  email_otp: ^3.1.0
+  # Navigation bar routing helpers.
+  navbar_router: ^0.7.7
 
 dev_dependencies:
+  # Flutter testing framework.
   flutter_test:
     sdk: flutter
+  # Recommended lint rules for Flutter and Dart projects.
   flutter_lints: ^6.0.0
 
 dependency_overrides:
+  # Local patched Linux implementation for the record plugin.
   record_linux:
     path: third_party/record_linux_patch
 
@@ -44,7 +71,5 @@ flutter:
 
 flutter_launcher_icons:
   android: "launcher_icon"
-  ios: true
-  remove_alpha_ios: true
   image_path: "assets/images/icon.png"
   min_sdk_android: 21

@@ -40,6 +40,28 @@ class PatientLocalDatasource {
     return result.map(PatientModel.fromMap).toList();
   }
 
+  Future<List<PatientModel>> getPendingSyncPatients() async {
+    final db = await databaseHelper.database;
+    final result = await db.query(
+      'patients',
+      where: 'is_synced = ?',
+      whereArgs: [0],
+      orderBy: 'created_at ASC',
+    );
+
+    return result.map(PatientModel.fromMap).toList();
+  }
+
+  Future<void> markPatientSynced(int id) async {
+    final db = await databaseHelper.database;
+    await db.update(
+      'patients',
+      {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<List<PatientModel>> searchPatients(String query) async {
     final db = await databaseHelper.database;
     final normalizedQuery = '%${query.trim().toLowerCase()}%';

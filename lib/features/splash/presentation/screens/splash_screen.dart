@@ -38,41 +38,44 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.background,
+    final scheme = Theme.of(context).colorScheme;
+    final muted = scheme.onSurface.withValues(alpha: 0.58);
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Center(
           child: Padding(
-            padding: EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _SplashLogo(),
-                SizedBox(height: 24),
+                const _SplashLogo(),
+                const SizedBox(height: 24),
                 Text(
                   AppStrings.appName,
                   style: TextStyle(
-                    color: AppColors.primary,
+                    color: scheme.primary,
                     fontSize: 30,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
                   AppStrings.appSubtitle,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.muted),
+                  style: TextStyle(color: muted),
                 ),
-                SizedBox(height: 48),
+                const SizedBox(height: 48),
                 CircularProgressIndicator(
-                  color: AppColors.primary,
+                  color: scheme.primary,
                   strokeWidth: 2,
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   'Version ${AppStrings.version}',
                   style: TextStyle(
-                    color: AppColors.muted,
+                    color: muted,
                     fontSize: 11,
                   ),
                 ),

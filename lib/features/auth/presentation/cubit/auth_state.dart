@@ -26,6 +26,23 @@ class AuthSuccess extends AuthState {
   List<Object?> get props => [user];
 }
 
+class AuthOtpSent extends AuthState {
+  final String email;
+  final String? message;
+  final String? errorMessage;
+  final bool isVerifying;
+
+  const AuthOtpSent({
+    required this.email,
+    this.message,
+    this.errorMessage,
+    this.isVerifying = false,
+  });
+
+  @override
+  List<Object?> get props => [email, message, errorMessage, isVerifying];
+}
+
 class AuthFailure extends AuthState {
   final String message;
 

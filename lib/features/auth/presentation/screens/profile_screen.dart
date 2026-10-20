@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/theme/theme_cubit.dart';
 import '../../../../injection_container.dart';
 import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/widgets/info_row.dart';
@@ -134,10 +135,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildMetricTile(String label, String value) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: scheme.secondaryContainer,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -145,8 +147,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Text(
             value,
-            style: const TextStyle(
-              color: AppColors.primary,
+            style: TextStyle(
+              color: scheme.primary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -154,7 +156,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(color: AppColors.muted),
+            style: TextStyle(
+              color: scheme.onSurface.withValues(alpha: 0.58),
+            ),
           ),
         ],
       ),
@@ -217,6 +221,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
 
         final stats = snapshot.data!;
+        final scheme = Theme.of(context).colorScheme;
+        final muted = scheme.onSurface.withValues(alpha: 0.58);
 
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -227,14 +233,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: scheme.surface,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
                   children: [
                     CircleAvatar(
                       radius: 36,
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: scheme.primary,
                       child: Text(
                         _initials(user),
                         style: const TextStyle(
@@ -255,7 +261,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 6),
                     Text(
                       user.email,
-                      style: const TextStyle(color: AppColors.muted),
+                      style: TextStyle(color: muted),
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton(
@@ -303,10 +309,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: 'Paramètres',
                 child: Column(
                   children: [
-                    const ListTile(
-                      leading: Icon(Icons.dark_mode),
-                      title: Text('Thème'),
-                      trailing: Text('Sombre'),
+                    BlocBuilder<ThemeCubit, ThemeMode>(
+                      builder: (context, themeMode) {
+                        final isDark = themeMode == ThemeMode.dark;
+                        return SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          secondary: Icon(
+                            isDark
+                                ? Icons.dark_mode_outlined
+                                : Icons.light_mode_outlined,
+                          ),
+                          title: const Text('Thème sombre'),
+                          subtitle: Text(isDark ? 'Activé' : 'Désactivé'),
+                          value: isDark,
+                          onChanged: (value) =>
+                              context.read<ThemeCubit>().setDarkMode(value),
+                        );
+                      },
                     ),
                     const ListTile(
                       leading: Icon(Icons.language),
@@ -322,7 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              Divider(color: AppColors.surfaceVariant.withValues(alpha: 0.5)),
+              Divider(color: scheme.secondaryContainer),
               ListTile(
                 leading: const Icon(Icons.logout, color: AppColors.danger),
                 title: const Text(
@@ -370,10 +389,11 @@ class _ProfileSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
