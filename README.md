@@ -1,316 +1,159 @@
 # OxyTrace
 
-OxyTrace est une application mobile Flutter destinée au suivi des dossiers
-d'intubation trachéale. Elle permet de centraliser les informations patient, les
-facteurs de risque, l'évaluation clinique pré-intubation, les données de l'acte
-et les éléments complémentaires comme les photos, l'audio et l'export PDF.
+OxyTrace is a Flutter mobile application for managing tracheal intubation records. It centralizes patient information, risk factors, pre-intubation clinical assessments, procedure data, photos, audio notes, and PDF exports.
 
-## Introduction : contexte et problématique
+## Introduction
 
-L'intubation trachéale est un geste médical sensible qui nécessite une
-évaluation précise du patient avant, pendant et après l'acte. Dans un contexte
-clinique, les données liées aux antécédents, aux scores d'évaluation, aux
-complications et aux supports visuels peuvent être dispersées ou saisies de
-manière non standardisée.
+Tracheal intubation is a sensitive medical procedure that requires accurate patient assessment before, during, and after the procedure. In clinical settings, medical history, assessment scores, complications, and visual documentation can be scattered or recorded inconsistently.
 
-La problématique traitée par OxyTrace est donc la suivante : comment proposer un
-outil mobile simple, structuré et utilisable au lit du patient pour documenter
-les dossiers d'intubation, faciliter leur consultation et améliorer la traçabilité
-des informations cliniques importantes ?
+OxyTrace addresses this problem by providing a simple, structured mobile tool that can be used at the point of care to document intubation records, make them easier to review, and improve the traceability of important clinical information.
 
-## Objectifs du projet
+## Project objectives
 
-- Concevoir une application mobile dédiée à la gestion des dossiers
-  d'intubation trachéale.
-- Permettre l'authentification locale des utilisateurs.
-- Créer, consulter, modifier, rechercher et supprimer des dossiers patients.
-- Associer à chaque patient un ou plusieurs dossiers d'intubation.
-- Structurer la saisie des données médicales sous forme d'étapes guidées.
-- Enregistrer les critères de risque, le déroulement de l'acte et les
-  complications éventuelles.
-- Ajouter des photos cliniques et un enregistrement vocal complémentaire.
-- Générer et partager un compte rendu PDF du dossier d'intubation.
-- Stocker les données localement pour une utilisation mobile autonome.
+- Manage tracheal intubation records from a mobile device.
+- Provide local user registration and authentication.
+- Create, view, edit, search, and delete patient records.
+- Associate one or more intubation records with each patient.
+- Organize medical data entry into guided steps.
+- Record risk criteria, procedure details, and possible complications.
+- Add clinical photos and supplementary voice recordings.
+- Generate and share a PDF report for an intubation record.
+- Store data locally for autonomous mobile use.
 
-## Description fonctionnelle des principales fonctionnalités
+## Main features
 
-### Authentification
+### Authentication
 
-L'application propose un écran de connexion et d'inscription. Les utilisateurs
-sont enregistrés dans la base locale avec un mot de passe haché, ce qui permet de
-protéger l'accès aux dossiers médicaux.
+The application provides login and registration screens. Users are stored in the local database with hashed passwords to protect access to patient records.
 
-### Tableau de bord
+### Dashboard
 
-Le tableau de bord donne une vue rapide sur l'activité de l'application :
+The dashboard provides a quick overview of application activity, including total patients, recent records, patient creation, the patient list, patient search, and the user profile.
 
-- nombre total de patients ;
-- nombre de dossiers récents ;
-- accès rapide à la création d'un patient ;
-- accès à la liste des patients ;
-- recherche de patients ;
-- accès au profil utilisateur.
+### Patient management
 
-### Gestion des patients
+OxyTrace manages first and last name, phone number, sex, date of birth, automatically calculated age, BMI with category classification, and creation/update dates. Users can add, edit, delete, and search for patients. Each patient profile provides access to associated intubation records.
 
-OxyTrace permet de gérer les informations principales d'un patient :
+### Intubation records
 
-- prénom et nom ;
-- téléphone ;
-- sexe ;
-- date de naissance ;
-- âge calculé automatiquement ;
-- BMI/IMC avec catégorisation ;
-- dates de création et de mise à jour.
+Each record is linked to a patient and is entered through six guided steps:
 
-L'utilisateur peut ajouter, modifier, supprimer et rechercher un patient. Depuis
-la fiche patient, il peut consulter les informations générales et accéder aux
-dossiers d'intubation associés.
+1. Medical history.
+2. Clinical assessment.
+3. Risk assessment.
+4. Per-intubation data.
+5. Difficulties and complications.
+6. Additional data.
 
-### Gestion des dossiers d'intubation
+The form covers difficult intubation history, sleep apnea, diabetes, goiter, cervical trauma, burns, dysmorphia, cervicofacial tumors, snoring, dysphonia, dysphagia, STOP-BANG, ASA, Mallampati, thyromental distance, mouth opening, neck circumference, cervical mobility, intubation type, number of attempts, videolaryngoscope use, Eichmann guide, Cormack score, and complications.
 
-Chaque dossier d'intubation est rattaché à un patient. La saisie est organisée en
-six étapes :
+### Additional clinical data
 
-1. Antécédents médicaux.
-2. Évaluation clinique.
-3. Évaluation du risque.
-4. Données per-intubation.
-5. Difficultés et complications.
-6. Données complémentaires.
+The application supports front, profile, open-mouth, LIP test, supine-neutral, and supine-extension patient photo views. A voice recording can also be created to document specific phonemes. Media files are stored locally in the application document directory.
 
-Le formulaire couvre notamment les antécédents d'intubation difficile, SAOS,
-diabète, goitre, traumatismes cervicaux, brûlures, dysmorphies, tumeurs
-cervico-faciales, ronflement, dysphonie, dysphagie, score STOP-BANG, score ASA,
-Mallampati, distance thyro-mentonnière, ouverture buccale, tour de cou, mobilité
-cervicale, type d'intubation, nombre de tentatives, vidéolaryngoscope, guide
-d'Eichmann, score de Cormack et complications.
+### Record review and PDF export
 
-### Données complémentaires
+The record detail page displays medical history, clinical assessment, planned risk, procedure details, complications, and photos in organized sections. Users can generate and share a PDF containing patient information, clinical data, procedure details, complications, and available photos.
 
-L'application permet d'ajouter plusieurs vues photographiques du patient :
+## User workflow
 
-- vue de face ;
-- vue de profil ;
-- bouche ouverte ;
-- LIP test face ;
-- décubitus dorsal en position neutre ;
-- décubitus dorsal en extension.
+1. Open the application.
+2. Create an account or log in.
+3. Open the dashboard.
+4. Create a new patient or search for an existing patient.
+5. Open the patient profile.
+6. Create a new intubation record.
+7. Complete the guided medical form.
+8. Add photos and a voice recording if needed.
+9. Save and review the record.
+10. Edit, delete, or export the record as a PDF.
 
-Un enregistrement vocal peut aussi être réalisé pour documenter des phonèmes
-spécifiques. Les fichiers sont stockés localement dans l'espace documentaire de
-l'application.
+## Technical architecture
 
-### Consultation et export PDF
-
-La page de détail d'un dossier d'intubation présente les informations sous forme
-de sections consultables : antécédents, évaluation clinique, risque prévu,
-déroulement de l'acte, complications et photos. L'utilisateur peut générer un PDF
-contenant les informations du patient, les données cliniques, le déroulement de
-l'acte, les complications et les photos disponibles, puis le partager depuis le
-téléphone.
-
-## Parcours utilisateur
-
-Le parcours utilisateur principal est le suivant :
-
-1. L'utilisateur ouvre l'application.
-2. Il crée un compte ou se connecte.
-3. Il arrive sur le tableau de bord.
-4. Il crée un nouveau patient ou recherche un patient existant.
-5. Il ouvre la fiche du patient.
-6. Il crée un nouveau dossier d'intubation.
-7. Il remplit les étapes du formulaire médical.
-8. Il ajoute, si nécessaire, des photos et un enregistrement vocal.
-9. Il enregistre le dossier.
-10. Il consulte le résumé du dossier depuis la fiche patient.
-11. Il peut modifier le dossier, le supprimer ou générer un PDF de synthèse.
-
-## Architecture technique adoptée
-
-OxyTrace adopte une architecture inspirée de la Clean Architecture, organisée par
-fonctionnalité :
+OxyTrace follows a feature-based architecture inspired by Clean Architecture:
 
 ```text
 lib/
   core/
-    constants/
-    errors/
-    usecases/
-    utils/
+    constants/  errors/  usecases/  utils/
   features/
-    auth/
-      data/
-      domain/
-      presentation/
-    patient/
-      data/
-      domain/
-      presentation/
-    intubation/
-      data/
-      domain/
-      presentation/
-    splash/
-      presentation/
+    auth/       patient/       intubation/       splash/
+      data/     domain/        presentation/
   shared/
-    network/local/
-    services/
-    widgets/
+    network/local/  services/  widgets/
 ```
 
-Les principales responsabilités sont séparées ainsi :
+Responsibilities are separated as follows:
 
-- `presentation` : écrans Flutter, états et Cubits.
-- `domain` : entités, contrats de repositories et cas d'utilisation.
-- `data` : modèles, sources de données locales et implémentations des
-  repositories.
-- `shared` : composants réutilisables, base locale et services transverses.
-- `core` : constantes, validation, formatage et abstractions communes.
+- `presentation`: Flutter screens, states, and Cubits;
+- `domain`: entities, repository contracts, and use cases;
+- `data`: models, local data sources, and repository implementations;
+- `shared`: reusable components, local database, and cross-cutting services;
+- `core`: constants, validation, formatting, and shared abstractions.
 
-Les technologies utilisées sont :
+## Technology stack
 
-- Flutter et Dart pour l'application mobile ;
-- `flutter_bloc` pour la gestion d'état ;
-- `get_it` pour l'injection de dépendances ;
-- `sqflite` pour la base de données locale SQLite ;
-- `pdf`, `printing` et `share_plus` pour la génération et le partage de PDF ;
-- `image_picker` pour l'ajout de photos ;
-- `record`, `just_audio` et `permission_handler` pour l'enregistrement et la
-  lecture audio.
+- Flutter and Dart;
+- `flutter_bloc` for state management;
+- `get_it` for dependency injection;
+- `sqflite` for local SQLite storage;
+- `pdf`, `printing`, and `share_plus` for PDF generation and sharing;
+- `image_picker` for selecting photos;
+- `record`, `just_audio`, and `permission_handler` for audio recording and playback.
 
-## Modélisation des données
+## Data model
 
-La base SQLite locale contient trois tables principales.
-
-### Table `users`
-
-| Champ | Type | Description |
-| --- | --- | --- |
-| `id` | INTEGER | Identifiant unique |
-| `full_name` | TEXT | Nom complet de l'utilisateur |
-| `email` | TEXT | Email unique |
-| `password_hash` | TEXT | Mot de passe haché |
-
-### Table `patients`
-
-| Champ | Type | Description |
-| --- | --- | --- |
-| `id` | INTEGER | Identifiant unique |
-| `first_name` | TEXT | Prénom |
-| `last_name` | TEXT | Nom |
-| `phone` | TEXT | Téléphone |
-| `sex` | TEXT | Sexe |
-| `birth_date` | TEXT | Date de naissance |
-| `bmi` | REAL | Indice de masse corporelle |
-| `created_at` | TEXT | Date de création |
-| `updated_at` | TEXT | Date de mise à jour |
-
-### Table `intubations`
-
-| Champ | Type | Description |
-| --- | --- | --- |
-| `id` | INTEGER | Identifiant unique |
-| `patient_id` | INTEGER | Référence vers le patient |
-| `created_at` / `updated_at` | TEXT | Dates de suivi |
-| `antecedent_intubation_difficile`, `saos`, `diabete`, etc. | INTEGER | Antécédents et facteurs de risque |
-| `score_stopbang`, `score_asa`, `mallampati`, `dtm` | TEXT/INTEGER | Évaluation pré-intubation |
-| `intubation_prevue`, `type_intubation`, `nombre_tentatives` | TEXT/INTEGER | Prévision et déroulement de l'acte |
-| `videolaryngoscope`, `guide_eichmann`, `score_cormack` | INTEGER/TEXT | Moyens utilisés et score per-intubation |
-| `intubation_difficile_reelle`, `complications` | INTEGER/TEXT | Difficultés et complications |
-| `photo_paths` | TEXT | Chemins des photos locales |
-| `audio_path` | TEXT | Chemin de l'enregistrement vocal |
-
-La relation principale est :
+The local SQLite database contains `users`, `patients`, and `intubations` tables. The main relationship is:
 
 ```text
 patients (1) ---- (N) intubations
 ```
 
-La suppression d'un patient entraîne la suppression de ses dossiers
-d'intubation grâce à la contrainte `ON DELETE CASCADE`.
+Patient records include identity, contact, birth-date, BMI, and timestamps. Intubation records include assessment scores, procedure data, complications, local photo paths, and an audio path. Deleting a patient also deletes its intubation records through the `ON DELETE CASCADE` constraint.
 
-## Démonstration des fonctionnalités implémentées
+## Demonstration scenario
 
-Pour démontrer l'application, le scénario suivant peut être utilisé :
+1. Launch OxyTrace on an emulator or mobile device.
+2. Create a user account and log in.
+3. Create a patient from the dashboard and test the search feature.
+4. Create and complete an intubation record.
+5. Add clinical photos and a short voice recording.
+6. Save the record, review its details, and generate the PDF report.
+7. Edit or delete the record to demonstrate CRUD operations.
 
-1. Lancer OxyTrace sur un émulateur ou un appareil mobile.
-2. Créer un compte utilisateur puis se connecter.
-3. Depuis le tableau de bord, créer un nouveau patient.
-4. Vérifier l'apparition du patient dans la liste et tester la recherche.
-5. Ouvrir la fiche patient et consulter ses informations générales.
-6. Créer un dossier d'intubation.
-7. Remplir les étapes du formulaire : antécédents, évaluation clinique, risque,
-   données de l'acte, complications et données complémentaires.
-8. Ajouter une ou plusieurs photos cliniques.
-9. Réaliser un enregistrement vocal court.
-10. Enregistrer le dossier puis ouvrir son détail.
-11. Générer et partager le PDF du dossier.
-12. Modifier le dossier ou le supprimer pour montrer les opérations CRUD.
+## Challenges and solutions
 
-## Difficultés rencontrées et solutions apportées
+- **Long medical form:** guided steps and a progress indicator keep each category manageable.
+- **Data validation:** important assessment and procedure fields are validated before saving.
+- **Offline persistence:** local SQLite storage supports operation without a remote server.
+- **Media management:** files remain in local storage while SQLite stores only their paths.
+- **PDF generation:** the dedicated `PdfService` combines clinical data and photos into a shareable report.
 
-### Structuration d'un formulaire médical long
+## Future improvements
 
-La saisie d'un dossier d'intubation contient beaucoup de champs. Pour éviter une
-interface trop lourde, le formulaire a été découpé en étapes avec une barre de
-progression. Chaque étape regroupe une catégorie logique de données.
+- Secure server synchronization and stronger authentication with role management.
+- Encryption for the local database and sensitive medical files.
+- Statistics, advanced filters, and data backup/restore.
+- Expanded unit and integration test coverage.
+- Hospital or interoperable export formats.
+- Web version or administration interface.
 
-### Validation des données importantes
+## Getting started
 
-Certains champs sont indispensables pour exploiter correctement le dossier :
-évaluation clinique, risque prévu, type d'intubation, score de Cormack et nombre
-de tentatives. Une validation par étape a été mise en place afin d'empêcher
-l'enregistrement d'un dossier incomplet.
+### Requirements
 
-### Persistance locale des données
+- Flutter SDK;
+- Android Studio or Xcode, depending on the target platform;
+- an emulator or connected mobile device.
 
-L'application doit fonctionner en mobilité, même sans serveur distant. La
-solution adoptée est une base SQLite locale avec `sqflite`, associée à des
-datasources et repositories séparés pour garder un code maintenable.
-
-### Gestion des médias
-
-Les photos et l'audio ne sont pas stockés directement dans la base. L'application
-enregistre les fichiers dans le stockage local et conserve uniquement leurs
-chemins dans SQLite. Cette approche limite la taille de la base et simplifie
-l'affichage des médias.
-
-### Génération du compte rendu
-
-La génération PDF doit regrouper des données structurées et des photos. Un
-service dédié, `PdfService`, a été créé pour isoler cette logique et produire un
-document partageable sans mélanger cette responsabilité avec les écrans.
-
-## Perspectives d'amélioration
-
-- Ajouter une synchronisation avec un serveur sécurisé.
-- Mettre en place une authentification plus complète avec gestion des rôles.
-- Chiffrer la base locale et les fichiers médicaux sensibles.
-- Ajouter des statistiques sur les intubations difficiles et les complications.
-- Intégrer des filtres avancés sur les patients et les dossiers.
-- Ajouter une sauvegarde/restauration des données.
-- Améliorer l'analyse des photos et des enregistrements vocaux.
-- Ajouter des tests unitaires et des tests d'intégration plus complets.
-- Prévoir une exportation vers des formats hospitaliers ou interopérables.
-- Ajouter une version web ou une interface d'administration.
-
-## Lancement du projet
-
-Prérequis :
-
-- Flutter SDK installé ;
-- Android Studio ou Xcode selon la plateforme cible ;
-- un émulateur ou un appareil mobile connecté.
-
-Commandes utiles :
+### Install and run
 
 ```bash
 flutter pub get
 flutter run
 ```
 
-Pour analyser le code :
+### Analyze the code
 
 ```bash
 flutter analyze
